@@ -211,7 +211,7 @@ class SolarChargingController:
             if fresh_status and fresh_status.get("plugged_in") is False:
                 logger.warning("Tesla is not plugged in! Cannot start solar charging.")
                 if now - self.last_unplugged_alert_time > 3600:
-                    self.notifier.send("⚠️ Solar surplus available, but your Tesla is unplugged!")
+                    self.notifier.send("ALERT: Solar surplus available, but Tesla is unplugged.")
                     self.last_unplugged_alert_time = now
                 self.high_solar_since = None
                 return
@@ -226,7 +226,7 @@ class SolarChargingController:
                 self.current_set_amps = target_amps
                 self.last_amp_change_time = now
                 self.high_solar_since = None
-                msg = (f"☀️ Solar charging STARTED!\n"
+                msg = (f"Solar charging STARTED\n"
                        f"Solar Gen: {power_w:.0f} W\n"
                        f"Rate: {target_amps} A @ {self.voltage}V (~{target_amps * self.voltage} W)\n"
                        f"Battery: {battery_level}%")
@@ -245,7 +245,7 @@ class SolarChargingController:
         if plugged_in is False:
             logger.warning("Tesla disconnected while charging.")
             self.is_charging = False
-            self.notifier.send("🔌 Tesla was disconnected from charger.")
+            self.notifier.send("Tesla disconnected from charger.")
             return
 
         if power_w < self.stop_threshold_w:
@@ -271,7 +271,7 @@ class SolarChargingController:
             if self.tesla.stop_charging():
                 self.is_charging = False
                 self.low_solar_since = None
-                msg = (f"⛅ Solar charging STOPPED (low solar).\n"
+                msg = (f"Solar charging STOPPED (low solar)\n"
                        f"Solar Gen: {power_w:.0f} W\n"
                        f"Battery: {battery_level}%")
                 self.notifier.send(msg)
@@ -295,7 +295,7 @@ class SolarChargingController:
                     self.last_amp_change_time = now
                     if old_amps is not None and abs(target_amps - old_amps) >= 2:
                         self.notifier.send(
-                            f"⚡ Solar rate adjusted: {target_amps} A (~{target_amps * self.voltage} W)\n"
+                            f"Solar rate adjusted: {target_amps} A (~{target_amps * self.voltage} W)\n"
                             f"Solar Gen: {power_w:.0f} W"
                         )
             else:

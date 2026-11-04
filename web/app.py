@@ -28,7 +28,33 @@ def create_app(controller_ref=None, config_path="config.yaml"):
     def index():
         return render_template("index.html")
 
-    @app.route("/api/status")
+    @app.route("/api/setup-status")
+    def api_setup_status():
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                cfg = yaml.safe_load(f) or {}
+            completed = cfg.get("setup_completed", False)
+            tesla_auth = False
+            email = cfg.get("tesla", {}).get("email", "")
+            if email and email != "your-tesla-email@example.com":
+                t = teslapy.Tesla(email)
+                tesla_auth = t.authorized
+            return jsonify({"setup_completed": completed, "tesla_authorized": tesla_auth})
+        except Exception as e:
+            return jsonify({"setup_completed": False, "tesla_authorized": False, "error": str(e)})
+
+    @app.route("/api/setup-complete", methods=["POST"])
+    def api_setup_complete():
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                cfg = yaml.safe_load(f) or {}
+            cfg["setup_completed"] = True
+            with open(config_path, "w", encoding="utf-8") as f:
+                yaml.dump(cfg, f, default_flow_style=False)
+            return jsonify({"success": True})
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)}), 500
+
     def api_status():
         nonlocal controller_ref
         ctrl = controller_ref
@@ -209,14 +235,14 @@ def create_app(controller_ref=None, config_path="config.yaml"):
 
             client = SolarEdgeClient(host=host, port=port, unit_id=unit_id, timeout=5)
             if not client.connect():
-                logs.append("❌ Connection FAILED!")
+                logs.append("[ERROR] Connection failed.")
                 logs.append("Checklist:")
                 logs.append(f" 1. Verify inverter IP {host} is reachable on your LAN.")
                 logs.append(f" 2. Ensure Modbus TCP is ENABLED on port {port} via SolarEdge SetApp.")
                 logs.append(" 3. Ensure no other application (Home Assistant, etc.) is holding the Modbus connection.")
                 return jsonify({"log": "\n".join(logs)})
 
-            logs.append(f"✅ Modbus TCP Connected! Discovered SunSpec Base: {client.base_address}")
+            logs.append(f"[OK] Modbus TCP Connected. SunSpec Base Address: {client.base_address}")
             logs.append("Reading inverter registers...")
 
             telemetry = client.read_generation()
@@ -226,16 +252,16 @@ def create_app(controller_ref=None, config_path="config.yaml"):
                 w = telemetry.get("power_watts", 0.0)
                 desc = telemetry.get("status_desc", "UNKNOWN")
                 code = telemetry.get("status_code", 0)
-                logs.append("\n==========================================")
+                logs.append("\n------------------------------------------")
                 logs.append(f" Inverter Status: {desc} (Code {code})")
                 logs.append(f" Current Solar  : {w:,.1f} W ({(w/1000):.3f} kW)")
-                logs.append("==========================================")
+                logs.append("------------------------------------------")
                 if w > 0:
-                    logs.append("☀️ Solar production actively detected!")
+                    logs.append("[OK] Solar production actively detected.")
                 elif code == 2:
-                    logs.append("💤 Inverter is SLEEPING (Night/low light). Normal behavior.")
+                    logs.append("[INFO] Inverter is in SLEEPING mode (Night or low light).")
             else:
-                logs.append("❌ Connected to port but could not decode SunSpec registers.")
+                logs.append("[ERROR] Connected to port but could not decode SunSpec registers.")
 
             return jsonify({"log": "\n".join(logs)})
         except Exception as e:
