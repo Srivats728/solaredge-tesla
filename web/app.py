@@ -10,16 +10,28 @@ import logging
 import time
 import yaml
 from flask import Flask, render_template, jsonify, request
+from flask.json.provider import DefaultJSONProvider
 import teslapy
 from solaredge import SolarEdgeClient, STATUS_MAP
 
 logger = logging.getLogger(__name__)
 
 
+class CustomJSONProvider(DefaultJSONProvider):
+    """Ensures bytes objects are automatically decoded to UTF-8 strings."""
+    def default(self, obj):
+        if isinstance(obj, bytes):
+            return obj.decode("utf-8", errors="ignore")
+        return super().default(obj)
+
+
 def create_app(controller_ref=None, config_path="config.yaml"):
     template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
     app = Flask(__name__, template_folder=template_dir)
+    app.json_provider_class = CustomJSONProvider
+    app.json = CustomJSONProvider(app)
     app.config["SECRET_KEY"] = os.urandom(24)
+
 
     # In-memory storage for active OAuth flow
     oauth_sessions = {}
@@ -171,15 +183,25 @@ def create_app(controller_ref=None, config_path="config.yaml"):
 
         try:
             t = teslapy.Tesla(email)
-            state = t.new_state()
-            code_verifier = t.new_code_verifier()
+            raw_state = t.new_state()
+            raw_verifier = t.new_code_verifier()
+
+            state = raw_state.decode("utf-8") if isinstance(raw_state, bytes) else str(raw_state)
+            code_verifier = raw_verifier.decode("utf-8") if isinstance(raw_verifier, bytes) else str(raw_verifier)
+
             url = t.authorization_url(state=state, code_verifier=code_verifier)
+            if isinstance(url, bytes):
+                url = url.decode("utf-8")
+
             oauth_sessions[email] = {
                 "state": state,
-                "code_verifier": code_verifier
+                "code_verifier": code_verifier,
+                "raw_verifier": raw_verifier,
+                "raw_state": raw_state
             }
             return jsonify({"url": url, "state": state, "code_verifier": code_verifier})
         except Exception as e:
+            logger.error("Exception generating Tesla auth URL: %s", e, exc_info=True)
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/tesla/complete-auth", methods=["POST"])
@@ -196,7 +218,16 @@ def create_app(controller_ref=None, config_path="config.yaml"):
 
         try:
             t = teslapy.Tesla(email)
-            t.fetch_token(authorization_response=redirect_url, state=state, code_verifier=code_verifier)
+            cached_session = oauth_sessions.get(email, {})
+            verifier_to_use = cached_session.get("raw_verifier") or code_verifier
+            state_to_use = cached_session.get("raw_state") or state
+
+            try:
+                t.fetch_token(authorization_response=redirect_url, state=state_to_use, code_verifier=verifier_to_use)
+            except Exception:
+                # Fallback to string or bytes conversion
+                alt_verifier = code_verifier.encode("utf-8") if isinstance(code_verifier, str) else str(code_verifier)
+                t.fetch_token(authorization_response=redirect_url, state=state, code_verifier=alt_verifier)
 
             if t.authorized:
                 # Update config.yaml with email
@@ -217,6 +248,7 @@ def create_app(controller_ref=None, config_path="config.yaml"):
             else:
                 return jsonify({"success": False, "error": "Token exchange failed"}), 400
         except Exception as e:
+            logger.error("Exception in complete-auth: %s", e, exc_info=True)
             return jsonify({"success": False, "error": str(e)}), 500
 
     @app.route("/api/test-modbus")
