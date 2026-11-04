@@ -30,6 +30,9 @@ class SolarChargingController:
         self.notifier = notifier
         self.cfg = config
 
+        # Operating Mode: 'auto', 'force' (force 12A), 'off' (stop charge)
+        self.mode = "auto"
+
         # Parameters
         self.voltage = self.cfg.get("voltage", 120)
         self.min_amps = max(5, self.cfg.get("min_amps", 5))  # Tesla firmware min is 5A
@@ -42,13 +45,59 @@ class SolarChargingController:
         self.stop_delay_sec = self.cfg.get("stop_delay_seconds", 180)
         self.amp_cooldown_sec = self.cfg.get("amp_change_cooldown_seconds", 45)
 
+        # Telemetry Cache for Web Dashboard
+        self.last_solar_data: Dict[str, Any] = {}
+        self.last_tesla_data: Dict[str, Any] = {}
+
         # Internal tracking state
         self.is_charging = False
         self.current_set_amps: Optional[int] = None
+        self.target_amps: int = 5
         self.high_solar_since: Optional[float] = None
         self.low_solar_since: Optional[float] = None
         self.last_amp_change_time: float = 0.0
         self.last_unplugged_alert_time: float = 0.0
+
+    def set_mode(self, new_mode: str):
+        """Change operating mode ('auto', 'force', 'off')."""
+        logger.info("Optimizer mode changed from %s to %s", self.mode, new_mode)
+        self.mode = new_mode
+
+        if self.mode == "off":
+            if self.is_charging:
+                logger.info("Mode is OFF: stopping charging...")
+                self.tesla.stop_charging()
+                self.is_charging = False
+        elif self.mode == "force":
+            logger.info("Mode is FORCE: setting max current %d A and starting charge...", self.max_amps)
+            self.tesla.wake_up()
+            self.tesla.set_charging_amps(self.max_amps)
+            self.tesla.start_charging()
+            self.is_charging = True
+            self.current_set_amps = self.max_amps
+
+    def reload_config(self, full_config: Dict[str, Any]):
+        """Dynamically reload configuration parameters without restarting daemon."""
+        logger.info("Reloading configuration parameters into controller...")
+        chg = full_config.get("charging", {})
+        self.voltage = chg.get("voltage", self.voltage)
+        self.min_amps = max(5, chg.get("min_amps", self.min_amps))
+        self.max_amps = min(12, chg.get("max_amps", self.max_amps))
+        self.start_threshold_w = chg.get("start_threshold_watts", self.start_threshold_w)
+        self.baseline_house_w = chg.get("baseline_house_watts", self.baseline_house_w)
+        self.stop_threshold_w = chg.get("stop_threshold_watts", self.stop_threshold_w)
+        self.start_delay_sec = chg.get("start_delay_seconds", self.start_delay_sec)
+        self.stop_delay_sec = chg.get("stop_delay_seconds", self.stop_delay_sec)
+
+        # Update SolarEdge connection params if changed
+        se = full_config.get("solaredge", {})
+        if se.get("host") and (se.get("host") != self.solaredge.host or se.get("port") != self.solaredge.port):
+            self.solaredge.close()
+            self.solaredge.host = se.get("host", self.solaredge.host)
+            self.solaredge.port = se.get("port", self.solaredge.port)
+
+        # Update Notifier
+        self.notifier.__init__(full_config.get("whatsapp", {}))
 
     def calculate_target_amps(self, solar_power_w: float) -> int:
         """
@@ -67,9 +116,10 @@ class SolarChargingController:
         """Execute a single control loop iteration."""
         # 1. Read SolarEdge Generation
         solar_data = self.solaredge.read_generation()
-        if not solar_data.get("connected", False):
-            logger.warning("SolarEdge inverter not responding. Skipping cycle.")
-            return
+        if solar_data.get("connected", False):
+            self.last_solar_data = solar_data
+        else:
+            logger.warning("SolarEdge inverter not responding. Using cached data if any.")
 
         power_w = solar_data.get("power_watts", 0.0)
         status_desc = solar_data.get("status_desc", "UNKNOWN")
@@ -80,10 +130,12 @@ class SolarChargingController:
 
         # 2. Get Vehicle Status
         # If not charging and solar is low, do NOT wake the car (saves vampire drain)
-        wake_needed = self.is_charging or (power_w >= self.start_threshold_w and self.high_solar_since is not None)
+        wake_needed = self.is_charging or (power_w >= self.start_threshold_w and self.high_solar_since is not None) or self.mode == "force"
         tesla_data = self.tesla.get_charge_state(wake_if_needed=wake_needed)
 
-        if not tesla_data:
+        if tesla_data:
+            self.last_tesla_data = tesla_data
+        else:
             logger.warning("Unable to retrieve Tesla charge status.")
             return
 
@@ -107,7 +159,23 @@ class SolarChargingController:
             self.is_charging = False
             return
 
-        # 3. Decision Logic: Start, Stop, or Adjust Amps
+        # Check Manual / Off Modes
+        if self.mode == "off":
+            if self.is_charging:
+                self.tesla.stop_charging()
+                self.is_charging = False
+            return
+        elif self.mode == "force":
+            if not self.is_charging and plugged_in is not False:
+                self.tesla.set_charging_amps(self.max_amps)
+                self.tesla.start_charging()
+                self.is_charging = True
+                self.current_set_amps = self.max_amps
+            return
+
+        # 3. Decision Logic: Auto Solar Matching
+        self.target_amps = self.calculate_target_amps(power_w)
+
         if not self.is_charging:
             self._handle_not_charging(power_w, now, plugged_in, battery_level)
         else:
@@ -115,7 +183,6 @@ class SolarChargingController:
 
     def _handle_not_charging(self, power_w: float, now: float, plugged_in: Optional[bool], battery_level: Optional[int]):
         """Logic when car is currently idle / not charging."""
-        # Reset low solar timer since we're already stopped
         self.low_solar_since = None
 
         if power_w >= self.start_threshold_w:
@@ -128,7 +195,7 @@ class SolarChargingController:
             elapsed = now - self.high_solar_since
             remaining = self.start_delay_sec - elapsed
             if remaining > 0:
-                logger.info("Solar above threshold for %.0f s (needs %d s, %0.f s remaining)...",
+                logger.info("Solar above threshold for %.0f s (needs %d s, %.0f s remaining)...",
                             elapsed, self.start_delay_sec, remaining)
                 return
 
@@ -143,7 +210,7 @@ class SolarChargingController:
             fresh_status = self.tesla.get_charge_state(wake_if_needed=True)
             if fresh_status and fresh_status.get("plugged_in") is False:
                 logger.warning("Tesla is not plugged in! Cannot start solar charging.")
-                if now - self.last_unplugged_alert_time > 3600:  # alert once per hour
+                if now - self.last_unplugged_alert_time > 3600:
                     self.notifier.send("⚠️ Solar surplus available, but your Tesla is unplugged!")
                     self.last_unplugged_alert_time = now
                 self.high_solar_since = None
@@ -167,30 +234,25 @@ class SolarChargingController:
             else:
                 logger.warning("Tesla start_charging command did not succeed.")
         else:
-            # Power below threshold, reset start timer
             if self.high_solar_since is not None:
                 logger.info("Solar power dropped below start threshold. Resetting start delay timer.")
                 self.high_solar_since = None
 
     def _handle_charging(self, power_w: float, now: float, plugged_in: Optional[bool], battery_level: Optional[int]):
         """Logic when car is currently active / charging."""
-        # Reset start solar timer since we are already charging
         self.high_solar_since = None
 
-        # Check if unplugged or disconnected while charging
         if plugged_in is False:
             logger.warning("Tesla disconnected while charging.")
             self.is_charging = False
             self.notifier.send("🔌 Tesla was disconnected from charger.")
             return
 
-        # Check for low solar condition
         if power_w < self.stop_threshold_w:
             if self.low_solar_since is None:
                 self.low_solar_since = now
                 logger.info("Solar power (%.1f W) fell below stop threshold (%.1f W). Starting stop timer (%d s)...",
                             power_w, self.stop_threshold_w, self.stop_delay_sec)
-                # In the meantime, immediately reduce amps to minimum 5A to minimize any grid draw
                 if self.current_set_amps != self.min_amps:
                     logger.info("Stepping down current to %d A while waiting for cloud/solar recovery...", self.min_amps)
                     self.tesla.set_charging_amps(self.min_amps)
@@ -205,7 +267,6 @@ class SolarChargingController:
                             elapsed, self.stop_delay_sec, remaining)
                 return
 
-            # Stop delay expired: Stop charging to prevent grid draw
             logger.info("Solar power below stop threshold for %d s. Stopping Tesla charge...", self.stop_delay_sec)
             if self.tesla.stop_charging():
                 self.is_charging = False
@@ -218,12 +279,10 @@ class SolarChargingController:
                 logger.warning("Tesla stop_charging command failed.")
             return
         else:
-            # Solar recovered above stop threshold
             if self.low_solar_since is not None:
                 logger.info("Solar power recovered (%.1f W). Resetting stop delay timer.", power_w)
                 self.low_solar_since = None
 
-        # Dynamically adjust amps based on fluctuating solar
         target_amps = self.calculate_target_amps(power_w)
         if target_amps != self.current_set_amps:
             time_since_last_change = now - self.last_amp_change_time
@@ -234,7 +293,6 @@ class SolarChargingController:
                     old_amps = self.current_set_amps
                     self.current_set_amps = target_amps
                     self.last_amp_change_time = now
-                    # Only notify on significant step changes (e.g. >= 2A) to avoid notification spam
                     if old_amps is not None and abs(target_amps - old_amps) >= 2:
                         self.notifier.send(
                             f"⚡ Solar rate adjusted: {target_amps} A (~{target_amps * self.voltage} W)\n"

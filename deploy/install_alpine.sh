@@ -45,30 +45,26 @@ if [ ! -f "$INSTALL_DIR/config.yaml" ]; then
     echo "Created $INSTALL_DIR/config.yaml from example."
 fi
 
-echo "🔧 Step 5: Installing OpenRC background service..."
+echo "🔧 Step 5: Installing and starting OpenRC background service..."
 cp "$INSTALL_DIR/deploy/solaredge-tesla.initd" "/etc/init.d/$SERVICE_NAME"
 chmod +x "/etc/init.d/$SERVICE_NAME"
+rc-update add "$SERVICE_NAME" default || true
+rc-service "$SERVICE_NAME" restart || rc-service "$SERVICE_NAME" start || true
+
+MY_IP=$(ip -4 addr show eth0 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -n 1 || hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
 
 echo ""
 echo "=========================================================="
-echo " Installation Complete!"
+echo " 🎉 Installation Complete & Web Dashboard Started!"
 echo "=========================================================="
 echo ""
-echo "Next steps:"
-echo " 1. Edit your configuration file:"
-echo "    nano $INSTALL_DIR/config.yaml"
+echo "Open the Web Dashboard in your browser:"
+echo "   👉 http://${MY_IP}:8080"
 echo ""
-echo " 2. Authorize your Tesla account:"
-echo "    cd $INSTALL_DIR"
-echo "    $INSTALL_DIR/venv/bin/python authenticate_tesla.py"
-echo ""
-echo " 3. Test your SolarEdge Modbus connection:"
-echo "    $INSTALL_DIR/venv/bin/python test_modbus.py"
-echo ""
-echo " 4. Enable and start the background service:"
-echo "    rc-update add $SERVICE_NAME default"
-echo "    rc-service $SERVICE_NAME start"
-echo ""
-echo " Check service logs:"
-echo "    tail -f /var/log/solaredge-tesla.log"
+echo "From the web dashboard you can:"
+echo " - View live SolarEdge generation & Tesla charging status"
+echo " - Complete Tesla login with 1 click"
+echo " - Test your Modbus connection"
+echo " - Fine-tune threshold watts and settings anytime"
 echo "=========================================================="
+

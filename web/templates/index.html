@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SolarEdge ↔ Tesla Solar Optimizer</title>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #38bdf8;
+      --primary-hover: #0284c7;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --solar-yellow: #fbbf24;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: var(--bg-color); color: var(--text-main); min-height: 100vh; padding: 20px; }
+    .container { max-width: 1100px; margin: 0 auto; }
+    
+    /* Header */
+    header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 1px solid var(--card-border); margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand h1 { font-size: 1.4rem; font-weight: 700; }
+    .brand span { font-size: 0.85rem; color: var(--text-muted); background: #334155; padding: 4px 8px; border-radius: 6px; }
+    
+    /* Nav Tabs */
+    .nav-tabs { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+    .tab-btn { background: #1e293b; border: 1px solid var(--card-border); color: var(--text-muted); padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 0.95rem; }
+    .tab-btn:hover { color: var(--text-main); border-color: var(--primary); }
+    .tab-btn.active { background: var(--primary); color: #0f172a; border-color: var(--primary); }
+
+    /* Tab Content */
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* Grid & Cards */
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 24px; }
+    .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2); }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px; }
+    .card-title { font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .badge { font-size: 0.75rem; padding: 4px 10px; border-radius: 9999px; font-weight: 600; }
+    .badge-success { background: rgba(34, 197, 94, 0.2); color: var(--success); border: 1px solid var(--success); }
+    .badge-warning { background: rgba(245, 158, 11, 0.2); color: var(--warning); border: 1px solid var(--warning); }
+    .badge-danger { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+    .badge-info { background: rgba(56, 189, 248, 0.2); color: var(--primary); border: 1px solid var(--primary); }
+
+    /* Metrics */
+    .stat-main { font-size: 2.4rem; font-weight: 800; color: var(--text-main); margin-bottom: 4px; }
+    .stat-sub { font-size: 0.9rem; color: var(--text-muted); }
+    .stat-list { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .stat-item { display: flex; justify-content: space-between; font-size: 0.9rem; border-bottom: 1px dashed rgba(255,255,255,0.06); padding-bottom: 6px; }
+    .stat-item span:first-child { color: var(--text-muted); }
+    .stat-item span:last-child { font-weight: 600; }
+
+    /* Controls bar */
+    .controls-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+    .mode-buttons { display: flex; gap: 10px; }
+    .btn { padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 0.9rem; border: none; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-primary { background: var(--primary); color: #0f172a; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-outline { background: transparent; border: 1px solid var(--card-border); color: var(--text-main); }
+    .btn-outline:hover { border-color: var(--primary); }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-warning { background: var(--warning); color: #0f172a; }
+
+    /* Forms */
+    .form-group { margin-bottom: 18px; }
+    .form-label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+    .form-control { width: 100%; background: #0f172a; border: 1px solid var(--card-border); border-radius: 8px; padding: 10px 12px; color: var(--text-main); font-size: 0.95rem; }
+    .form-control:focus { outline: none; border-color: var(--primary); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+    .form-hint { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+
+    /* Console / Logs */
+    .terminal-box { background: #090d16; border: 1px solid var(--card-border); border-radius: 8px; padding: 16px; font-family: "Courier New", Courier, monospace; font-size: 0.85rem; color: #38bdf8; height: 380px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+
+    /* Banner / Alerts */
+    .alert-box { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem; display: none; }
+    .alert-box.success { background: rgba(34, 197, 94, 0.15); border: 1px solid var(--success); color: #86efac; }
+    .alert-box.error { background: rgba(239, 68, 68, 0.15); border: 1px solid var(--danger); color: #fca5a5; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="brand">
+      <span style="font-size: 1.5rem;">☀️🚗</span>
+      <div>
+        <h1>SolarEdge ↔ Tesla Solar Optimizer</h1>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">Autonomous Level 1 Solar Self-Consumption Controller</div>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span id="daemon-badge" class="badge badge-success">Daemon: Active</span>
+      <span id="last-updated" style="font-size: 0.75rem; color: var(--text-muted);">Updated: Just now</span>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Live Dashboard</button>
+    <button class="tab-btn" onclick="switchTab('settings')">⚙️ Settings</button>
+    <button class="tab-btn" onclick="switchTab('tesla')">🚗 Tesla Account</button>
+    <button class="tab-btn" onclick="switchTab('modbus')">🔍 Modbus Tester</button>
+    <button class="tab-btn" onclick="switchTab('logs')">📜 Live Logs</button>
+  </div>
+
+  <div id="alert-banner" class="alert-box"></div>
+
+  <!-- TAB 1: DASHBOARD -->
+  <div id="tab-dashboard" class="tab-pane active">
+    <!-- Controls Bar -->
+    <div class="controls-card">
+      <div>
+        <div style="font-weight: 700; font-size: 1rem;">Operating Mode</div>
+        <div style="font-size: 0.85rem; color: var(--text-muted);" id="current-mode-desc">Auto: Charges dynamically when solar surplus > 1.7 kW</div>
+      </div>
+      <div class="mode-buttons">
+        <button class="btn btn-primary" id="btn-mode-auto" onclick="setMode('auto')">☀️ Auto (Solar Only)</button>
+        <button class="btn btn-warning" id="btn-mode-force" onclick="setMode('force')">⚡ Force 12A</button>
+        <button class="btn btn-outline" id="btn-mode-off" onclick="setMode('off')">🛑 Stop Charging</button>
+      </div>
+    </div>
+
+    <!-- Telemetry Cards Grid -->
+    <div class="grid">
+      <!-- SolarEdge Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><span>☀️</span> SolarEdge Inverter</div>
+          <span id="se-status-badge" class="badge badge-info">Checking...</span>
+        </div>
+        <div class="stat-main" id="se-power-watts">-- W</div>
+        <div class="stat-sub" id="se-power-kw">-- kW generation</div>
+        
+        <div class="stat-list">
+          <div class="stat-item">
+            <span>Inverter IP</span>
+            <span id="se-host">192.168.40.169:1502</span>
+          </div>
+          <div class="stat-item">
+            <span>Inverter State</span>
+            <span id="se-state">--</span>
+          </div>
+          <div class="stat-item">
+            <span>Start Threshold</span>
+            <span id="se-threshold">1,700 W</span>
+          </div>
+          <div class="stat-item">
+            <span>Surplus Status</span>
+            <span id="se-surplus-status">--</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tesla Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><span>🚗</span> Tesla Model 3</div>
+          <span id="tesla-state-badge" class="badge badge-info">Checking...</span>
+        </div>
+        <div class="stat-main" id="tesla-battery-stat">-- %</div>
+        <div class="stat-sub" id="tesla-charge-sub">State: Unknown</div>
+
+        <div class="stat-list">
+          <div class="stat-item">
+            <span>Plugged In</span>
+            <span id="tesla-plugged">--</span>
+          </div>
+          <div class="stat-item">
+            <span>Charging Current</span>
+            <span id="tesla-amps">-- A</span>
+          </div>
+          <div class="stat-item">
+            <span>Charger Voltage</span>
+            <span id="tesla-voltage">120 V</span>
+          </div>
+          <div class="stat-item">
+            <span>Target Charge Limit</span>
+            <span id="tesla-limit">-- %</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Optimizer Engine Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><span>⚡</span> Solar Allocation</div>
+          <span id="engine-status-badge" class="badge badge-success">Optimizing</span>
+        </div>
+        <div class="stat-main" id="allocated-amps">-- A</div>
+        <div class="stat-sub" id="allocated-power">Level 1 Power: -- W</div>
+
+        <div class="stat-list">
+          <div class="stat-item">
+            <span>House Baseline Deduction</span>
+            <span id="baseline-stat">600 W</span>
+          </div>
+          <div class="stat-item">
+            <span>Calculated Solar Surplus</span>
+            <span id="surplus-stat">-- W</span>
+          </div>
+          <div class="stat-item">
+            <span>Hysteresis Delay</span>
+            <span id="debounce-stat">Inactive</span>
+          </div>
+          <div class="stat-item">
+            <span>Grid Avoidance</span>
+            <span style="color: var(--success); font-weight: 700;">Active 🛡️</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: SETTINGS -->
+  <div id="tab-settings" class="tab-pane">
+    <div class="card" style="max-width: 800px; margin: 0 auto;">
+      <div class="card-header">
+        <div class="card-title">⚙️ Optimizer Configuration</div>
+      </div>
+      <form id="settings-form" onsubmit="saveSettings(event)">
+        <h4 style="color: var(--primary); margin: 12px 0;">SolarEdge Inverter (Modbus TCP)</h4>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Inverter IP Address</label>
+            <input type="text" id="cfg-se-host" class="form-control" required value="192.168.40.169">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Modbus TCP Port</label>
+            <input type="number" id="cfg-se-port" class="form-control" required value="1502">
+          </div>
+        </div>
+
+        <h4 style="color: var(--primary); margin: 18px 0 12px 0;">Level 1 Charging Logic</h4>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Start Solar Threshold (Watts)</label>
+            <input type="number" id="cfg-start-w" class="form-control" required value="1700">
+            <div class="form-hint">Minimum solar required to trigger charging (default 1700W)</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">House Baseline Estimation (Watts)</label>
+            <input type="number" id="cfg-baseline-w" class="form-control" required value="600">
+            <div class="form-hint">Deducted from solar to find net surplus (default 600W)</div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Stop Solar Threshold (Watts)</label>
+            <input type="number" id="cfg-stop-w" class="form-control" required value="1100">
+            <div class="form-hint">Below this, charge stops after debounce timer</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Level 1 Voltage (V)</label>
+            <input type="number" id="cfg-voltage" class="form-control" required value="120">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Minimum Amps (Tesla Min is 5A)</label>
+            <input type="number" id="cfg-min-amps" class="form-control" required min="5" max="12" value="5">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Maximum Amps (120V 15A outlet is 12A)</label>
+            <input type="number" id="cfg-max-amps" class="form-control" required min="5" max="12" value="12">
+          </div>
+        </div>
+
+        <h4 style="color: var(--primary); margin: 18px 0 12px 0;">Cloud & Debounce Timers (Hysteresis)</h4>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Start Delay Timer (Seconds)</label>
+            <input type="number" id="cfg-start-delay" class="form-control" required value="120">
+            <div class="form-hint">Solar must stay sustained before waking car</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Stop Delay Timer (Seconds)</label>
+            <input type="number" id="cfg-stop-delay" class="form-control" required value="180">
+            <div class="form-hint">Tolerates passing clouds before cutting charge</div>
+          </div>
+        </div>
+
+        <h4 style="color: var(--primary); margin: 18px 0 12px 0;">WhatsApp Notifications (Optional)</h4>
+        <div class="form-group">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="cfg-wa-enabled"> Enable WhatsApp Alerts via CallMeBot
+          </label>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Phone Number (with Country Code)</label>
+            <input type="text" id="cfg-wa-phone" class="form-control" placeholder="+1234567890">
+          </div>
+          <div class="form-group">
+            <label class="form-label">CallMeBot API Key</label>
+            <input type="text" id="cfg-wa-key" class="form-control" placeholder="123456">
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="margin-top: 12px;">💾 Save All Settings</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- TAB 3: TESLA SETUP -->
+  <div id="tab-tesla" class="tab-pane">
+    <div class="card" style="max-width: 800px; margin: 0 auto;">
+      <div class="card-header">
+        <div class="card-title">🚗 Tesla Account & Authorization</div>
+        <span id="tesla-auth-badge" class="badge badge-warning">Checking Auth...</span>
+      </div>
+
+      <div id="tesla-auth-status" style="margin-bottom: 20px;"></div>
+
+      <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid var(--primary); border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+        <h4 style="margin-bottom: 8px; color: var(--primary);">How to Authorize (Headless SSO):</h4>
+        <ol style="margin-left: 20px; font-size: 0.9rem; line-height: 1.6; color: var(--text-muted);">
+          <li>Enter your Tesla email address below and click <strong>"Step 1: Get Tesla Login Link"</strong>.</li>
+          <li>Click the generated link to log in securely on Tesla's official website.</li>
+          <li>After signing in, Tesla will redirect you to a page saying <strong>"Page Not Found" (404)</strong>. <em>This is completely normal!</em></li>
+          <li>Copy the <strong>entire URL</strong> from your browser's address bar and paste it in Step 2 below, then click <strong>"Step 2: Complete Authorization"</strong>.</li>
+        </ol>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Tesla Account Email</label>
+        <input type="email" id="tesla-email" class="form-control" placeholder="your-tesla-email@example.com">
+      </div>
+
+      <button class="btn btn-primary" onclick="requestAuthUrl()">🔗 Step 1: Get Tesla Login Link</button>
+
+      <div id="login-link-container" style="margin-top: 16px; display: none;">
+        <div class="form-label">Official Tesla Login Link:</div>
+        <a id="tesla-oauth-url" href="#" target="_blank" class="btn btn-outline" style="color: var(--primary); word-break: break-all; margin-bottom: 16px;">Open Tesla Login Page ↗</a>
+        
+        <div class="form-group">
+          <label class="form-label">Step 2: Paste the 'Page Not Found' Redirect URL here</label>
+          <input type="text" id="redirect-url-input" class="form-control" placeholder="https://auth.tesla.com/void/callback?code=...">
+        </div>
+
+        <button class="btn btn-success" onclick="submitAuthToken()">✅ Step 2: Complete Authorization</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: MODBUS TESTER -->
+  <div id="tab-modbus" class="tab-pane">
+    <div class="card" style="max-width: 800px; margin: 0 auto;">
+      <div class="card-header">
+        <div class="card-title">🔍 SolarEdge Modbus TCP Diagnostic Tool</div>
+      </div>
+      <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">
+        Tests local network connectivity to your inverter at <code id="test-ip-disp">192.168.40.169:1502</code>, scans for SunSpec registers, and checks power generation output.
+      </p>
+      <button class="btn btn-primary" onclick="runModbusTest()" style="margin-bottom: 16px;">🚀 Run Modbus TCP Test Now</button>
+      
+      <div class="terminal-box" id="modbus-output">Click "Run Modbus TCP Test Now" to test the connection...</div>
+    </div>
+  </div>
+
+  <!-- TAB 5: LOGS -->
+  <div id="tab-logs" class="tab-pane">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📜 System Service Logs</div>
+        <button class="btn btn-outline" onclick="fetchLogs()">🔄 Refresh Logs</button>
+      </div>
+      <div class="terminal-box" id="log-output" style="height: 480px;">Loading logs...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let activeTab = 'dashboard';
+  let authState = '';
+  let authCodeVerifier = '';
+
+  function switchTab(tabId) {
+    activeTab = tabId;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('tab-' + tabId).classList.add('active');
+
+    if (tabId === 'logs') fetchLogs();
+    if (tabId === 'settings') loadSettingsForm();
+    if (tabId === 'tesla') checkTeslaStatus();
+  }
+
+  function showAlert(msg, isError = false) {
+    const el = document.getElementById('alert-banner');
+    el.className = 'alert-box ' + (isError ? 'error' : 'success');
+    el.textContent = msg;
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 6000);
+  }
+
+  // Poll status every 3 seconds
+  async function refreshTelemetry() {
+    try {
+      const res = await fetch('/api/status');
+      if (!res.ok) return;
+      const data = await res.json();
+
+      // Inverter Telemetry
+      const se = data.solaredge || {};
+      const watts = se.power_watts || 0;
+      document.getElementById('se-power-watts').textContent = `${watts.toLocaleString()} W`;
+      document.getElementById('se-power-kw').textContent = `${(watts / 1000).toFixed(2)} kW generation`;
+      document.getElementById('se-host').textContent = `${se.host || '192.168.40.169'}:${se.port || 1502}`;
+      document.getElementById('se-state').textContent = se.status_desc || 'Unknown';
+      
+      const seBadge = document.getElementById('se-status-badge');
+      if (se.connected) {
+        seBadge.className = 'badge badge-success';
+        seBadge.textContent = 'Modbus Connected';
+      } else {
+        seBadge.className = 'badge badge-danger';
+        seBadge.textContent = 'Disconnected';
+      }
+
+      // Tesla Telemetry
+      const tesla = data.tesla || {};
+      document.getElementById('tesla-battery-stat').textContent = tesla.battery_level !== null ? `${tesla.battery_level}%` : '-- %';
+      document.getElementById('tesla-charge-sub').textContent = `State: ${tesla.charging_state || 'Asleep / Standby'}`;
+      document.getElementById('tesla-plugged').textContent = tesla.plugged_in === true ? 'Yes (Connected) 🔌' : (tesla.plugged_in === false ? 'Unplugged ❌' : 'Unknown');
+      document.getElementById('tesla-amps').textContent = `${tesla.charger_actual_current || tesla.charge_amps || '--'} A`;
+      document.getElementById('tesla-voltage').textContent = `${tesla.charger_voltage || 120} V`;
+      document.getElementById('tesla-limit').textContent = `${tesla.charge_limit_soc || '--'} %`;
+
+      const tBadge = document.getElementById('tesla-state-badge');
+      if (tesla.charging_state === 'Charging') {
+        tBadge.className = 'badge badge-success';
+        tBadge.textContent = 'Charging ⚡';
+      } else if (tesla.charging_state === 'Complete') {
+        tBadge.className = 'badge badge-info';
+        tBadge.textContent = 'Full 🔋';
+      } else if (tesla.online) {
+        tBadge.className = 'badge badge-info';
+        tBadge.textContent = 'Online / Idle';
+      } else {
+        tBadge.className = 'badge badge-warning';
+        tBadge.textContent = 'Asleep (Deep Sleep)';
+      }
+
+      // Engine
+      const ctrl = data.controller || {};
+      const setAmps = ctrl.current_set_amps || ctrl.target_amps || 0;
+      document.getElementById('allocated-amps').textContent = `${setAmps} A`;
+      document.getElementById('allocated-power').textContent = `Level 1 Power: ~${setAmps * 120} W`;
+      document.getElementById('surplus-stat').textContent = `${Math.max(0, watts - (ctrl.baseline_house_w || 600)).toFixed(0)} W`;
+      document.getElementById('baseline-stat').textContent = `${ctrl.baseline_house_w || 600} W`;
+
+      // Surplus status
+      const surplusEl = document.getElementById('se-surplus-status');
+      if (watts >= (ctrl.start_threshold_w || 1700)) {
+        surplusEl.textContent = 'Surplus Available (≥ 1.7 kW) ✅';
+        surplusEl.style.color = 'var(--success)';
+      } else {
+        surplusEl.textContent = 'Below Start Threshold';
+        surplusEl.style.color = 'var(--text-muted)';
+      }
+
+      // Active Mode
+      const mode = ctrl.mode || 'auto';
+      document.getElementById('btn-mode-auto').className = mode === 'auto' ? 'btn btn-primary' : 'btn btn-outline';
+      document.getElementById('btn-mode-force').className = mode === 'force' ? 'btn btn-warning' : 'btn btn-outline';
+      document.getElementById('btn-mode-off').className = mode === 'off' ? 'btn btn-danger' : 'btn btn-outline';
+
+      document.getElementById('last-updated').textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  setInterval(refreshTelemetry, 3000);
+  refreshTelemetry();
+
+  async function setMode(mode) {
+    try {
+      const res = await fetch('/api/mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode })
+      });
+      const data = await res.json();
+      showAlert(data.message || 'Mode updated');
+      refreshTelemetry();
+    } catch (e) {
+      showAlert('Failed to set mode: ' + e, true);
+    }
+  }
+
+  async function loadSettingsForm() {
+    try {
+      const res = await fetch('/api/settings');
+      const data = await res.json();
+      document.getElementById('cfg-se-host').value = data.solaredge.host || '192.168.40.169';
+      document.getElementById('cfg-se-port').value = data.solaredge.port || 1502;
+      document.getElementById('cfg-start-w').value = data.charging.start_threshold_watts || 1700;
+      document.getElementById('cfg-baseline-w').value = data.charging.baseline_house_watts || 600;
+      document.getElementById('cfg-stop-w').value = data.charging.stop_threshold_watts || 1100;
+      document.getElementById('cfg-voltage').value = data.charging.voltage || 120;
+      document.getElementById('cfg-min-amps').value = data.charging.min_amps || 5;
+      document.getElementById('cfg-max-amps').value = data.charging.max_amps || 12;
+      document.getElementById('cfg-start-delay').value = data.charging.start_delay_seconds || 120;
+      document.getElementById('cfg-stop-delay').value = data.charging.stop_delay_seconds || 180;
+      document.getElementById('cfg-wa-enabled').checked = !!data.whatsapp.enabled;
+      document.getElementById('cfg-wa-phone').value = data.whatsapp.callmebot.phone || '';
+      document.getElementById('cfg-wa-key').value = data.whatsapp.callmebot.apikey || '';
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function saveSettings(e) {
+    e.preventDefault();
+    const payload = {
+      solaredge: {
+        host: document.getElementById('cfg-se-host').value,
+        port: parseInt(document.getElementById('cfg-se-port').value),
+      },
+      charging: {
+        start_threshold_watts: parseInt(document.getElementById('cfg-start-w').value),
+        baseline_house_watts: parseInt(document.getElementById('cfg-baseline-w').value),
+        stop_threshold_watts: parseInt(document.getElementById('cfg-stop-w').value),
+        voltage: parseInt(document.getElementById('cfg-voltage').value),
+        min_amps: parseInt(document.getElementById('cfg-min-amps').value),
+        max_amps: parseInt(document.getElementById('cfg-max-amps').value),
+        start_delay_seconds: parseInt(document.getElementById('cfg-start-delay').value),
+        stop_delay_seconds: parseInt(document.getElementById('cfg-stop-delay').value),
+      },
+      whatsapp: {
+        enabled: document.getElementById('cfg-wa-enabled').checked,
+        provider: 'callmebot',
+        callmebot: {
+          phone: document.getElementById('cfg-wa-phone').value,
+          apikey: document.getElementById('cfg-wa-key').value,
+        }
+      }
+    };
+
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      showAlert(data.message || 'Settings saved successfully!');
+    } catch (err) {
+      showAlert('Failed to save settings: ' + err, true);
+    }
+  }
+
+  async function checkTeslaStatus() {
+    try {
+      const res = await fetch('/api/tesla/status');
+      const data = await res.json();
+      const badge = document.getElementById('tesla-auth-badge');
+      const statusDiv = document.getElementById('tesla-auth-status');
+
+      if (data.authorized) {
+        badge.className = 'badge badge-success';
+        badge.textContent = 'Authorized ✅';
+        statusDiv.innerHTML = `<div style="color: var(--success); font-weight: 600;">Connected as ${data.email || 'Tesla Account'}</div>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">Vehicles: ${data.vehicles ? data.vehicles.join(', ') : 'Active'}</div>`;
+      } else {
+        badge.className = 'badge badge-warning';
+        badge.textContent = 'Needs Authorization ⚠️';
+        statusDiv.innerHTML = `<div style="color: var(--warning);">Tesla account is not yet authorized. Please follow the steps below.</div>`;
+      }
+      if (data.email) {
+        document.getElementById('tesla-email').value = data.email;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function requestAuthUrl() {
+    const email = document.getElementById('tesla-email').value.trim();
+    if (!email) {
+      alert('Please enter your Tesla account email');
+      return;
+    }
+    try {
+      const res = await fetch('/api/tesla/auth-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      if (data.url) {
+        authState = data.state;
+        authCodeVerifier = data.code_verifier;
+        const linkEl = document.getElementById('tesla-oauth-url');
+        linkEl.href = data.url;
+        document.getElementById('login-link-container').style.display = 'block';
+        showAlert('Login link generated! Click the link below to sign in to Tesla.');
+      } else {
+        showAlert(data.error || 'Failed to generate auth URL', true);
+      }
+    } catch (e) {
+      showAlert('Error: ' + e, true);
+    }
+  }
+
+  async function submitAuthToken() {
+    const redirectUrl = document.getElementById('redirect-url-input').value.trim();
+    const email = document.getElementById('tesla-email').value.trim();
+    if (!redirectUrl) {
+      alert('Please paste the redirect URL');
+      return;
+    }
+    try {
+      showAlert('Exchanging token with Tesla...');
+      const res = await fetch('/api/tesla/complete-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          redirect_url: redirectUrl,
+          state: authState,
+          code_verifier: authCodeVerifier
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showAlert('🎉 Tesla account authorized successfully!');
+        checkTeslaStatus();
+        document.getElementById('login-link-container').style.display = 'none';
+      } else {
+        showAlert(data.error || 'Authorization failed. Check URL and try again.', true);
+      }
+    } catch (e) {
+      showAlert('Error: ' + e, true);
+    }
+  }
+
+  async function runModbusTest() {
+    const out = document.getElementById('modbus-output');
+    out.textContent = 'Running diagnostic test against inverter...\nConnecting to 192.168.40.169:1502...\n';
+    try {
+      const res = await fetch('/api/test-modbus');
+      const data = await res.json();
+      out.textContent = data.log || JSON.stringify(data, null, 2);
+    } catch (e) {
+      out.textContent = 'Error executing test: ' + e;
+    }
+  }
+
+  async function fetchLogs() {
+    try {
+      const res = await fetch('/api/logs');
+      const data = await res.json();
+      const out = document.getElementById('log-output');
+      out.textContent = data.logs || 'No logs yet.';
+      out.scrollTop = out.scrollHeight;
+    } catch (e) {
+      console.error(e);
+    }
+  }
+</script>
+</body>
+</html>
