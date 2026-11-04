@@ -13,6 +13,7 @@ from flask import Flask, render_template, jsonify, request
 from flask.json.provider import DefaultJSONProvider
 import teslapy
 from solaredge import SolarEdgeClient, STATUS_MAP
+from tesla_fleet import TeslaFleetClient
 
 logger = logging.getLogger(__name__)
 
@@ -155,24 +156,91 @@ def create_app(controller_ref=None, config_path="config.yaml"):
     def api_tesla_status():
         try:
             with open(config_path, "r", encoding="utf-8") as f:
-                cfg = yaml.safe_load(f)
-            email = cfg.get("tesla", {}).get("email", "")
+                cfg = yaml.safe_load(f) or {}
+            tesla_cfg = cfg.get("tesla", {})
+            provider = tesla_cfg.get("provider", "fleet").lower()
 
-            if not email or email == "your-tesla-email@example.com":
-                return jsonify({"authorized": False, "email": ""})
+            if provider == "fleet" or tesla_cfg.get("fleet", {}).get("access_token"):
+                fleet_cfg = tesla_cfg.get("fleet", {})
+                client = TeslaFleetClient(fleet_cfg)
+                initialized = client.initialize()
+                vehicles = []
+                if client.vehicle_info:
+                    v = client.vehicle_info
+                    vehicles.append(f"{v.get('display_name')} ({v.get('vin')})")
+                return jsonify({
+                    "provider": "fleet",
+                    "authorized": initialized,
+                    "vehicles": vehicles,
+                    "region": fleet_cfg.get("region", "na")
+                })
+            else:
+                email = tesla_cfg.get("email", "")
+                if not email or email == "your-tesla-email@example.com":
+                    return jsonify({"provider": "teslapy", "authorized": False, "email": ""})
 
-            t = teslapy.Tesla(email)
-            authorized = t.authorized
-            vehicles = []
-            if authorized:
-                try:
-                    for v in t.vehicle_list():
-                        vehicles.append(f"{v.get('display_name')} ({v.get('vin')})")
-                except Exception:
-                    pass
-            return jsonify({"authorized": authorized, "email": email, "vehicles": vehicles})
+                t = teslapy.Tesla(email)
+                authorized = t.authorized
+                vehicles = []
+                if authorized:
+                    try:
+                        for v in t.vehicle_list():
+                            vehicles.append(f"{v.get('display_name')} ({v.get('vin')})")
+                    except Exception:
+                        pass
+                return jsonify({"provider": "teslapy", "authorized": authorized, "email": email, "vehicles": vehicles})
         except Exception as e:
             return jsonify({"authorized": False, "error": str(e)})
+
+    @app.route("/api/fleet/configure", methods=["POST"])
+    def api_fleet_configure():
+        nonlocal controller_ref
+        data = request.get_json() or {}
+        access_token = data.get("access_token", "").strip()
+        refresh_token = data.get("refresh_token", "").strip()
+        client_id = data.get("client_id", "").strip()
+        client_secret = data.get("client_secret", "").strip()
+        region = data.get("region", "na").strip().lower()
+
+        if not (access_token or refresh_token):
+            return jsonify({"success": False, "error": "Access token or Refresh token is required."}), 400
+
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+
+        if "tesla" not in cfg:
+            cfg["tesla"] = {}
+        cfg["tesla"]["provider"] = "fleet"
+        cfg["tesla"]["fleet"] = {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "region": region
+        }
+
+        with open(config_path, "w", encoding="utf-8") as f:
+            yaml.dump(cfg, f, default_flow_style=False)
+
+        # Test connection
+        fleet_client = TeslaFleetClient(cfg["tesla"]["fleet"])
+        if fleet_client.initialize():
+            if controller_ref:
+                controller_ref.tesla = fleet_client
+            vehicles = []
+            if fleet_client.vehicle_info:
+                v = fleet_client.vehicle_info
+                vehicles.append(f"{v.get('display_name')} (VIN: {v.get('vin')})")
+            return jsonify({
+                "success": True,
+                "message": "Tesla Fleet API connected successfully!",
+                "vehicles": vehicles
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Could not connect to Tesla Fleet API. Verify your access token and region."
+            }), 400
 
     @app.route("/api/tesla/auth-url", methods=["POST"])
     def api_tesla_auth_url():
@@ -186,20 +254,24 @@ def create_app(controller_ref=None, config_path="config.yaml"):
             raw_state = t.new_state()
             raw_verifier = t.new_code_verifier()
 
-            state = raw_state.decode("utf-8") if isinstance(raw_state, bytes) else str(raw_state)
-            code_verifier = raw_verifier.decode("utf-8") if isinstance(raw_verifier, bytes) else str(raw_verifier)
+            # Ensure raw_verifier passed to TeslaPy's authorization_url is BYTES (not str)
+            verifier_bytes = raw_verifier if isinstance(raw_verifier, bytes) else raw_verifier.encode("utf-8")
+            state_bytes = raw_state if isinstance(raw_state, bytes) else raw_state.encode("utf-8")
 
-            url = t.authorization_url(state=state, code_verifier=code_verifier)
+            url = t.authorization_url(state=state_bytes, code_verifier=verifier_bytes)
             if isinstance(url, bytes):
                 url = url.decode("utf-8")
 
+            state_str = raw_state.decode("utf-8") if isinstance(raw_state, bytes) else str(raw_state)
+            code_verifier_str = raw_verifier.decode("utf-8") if isinstance(raw_verifier, bytes) else str(raw_verifier)
+
             oauth_sessions[email] = {
-                "state": state,
-                "code_verifier": code_verifier,
-                "raw_verifier": raw_verifier,
-                "raw_state": raw_state
+                "state": state_str,
+                "code_verifier": code_verifier_str,
+                "raw_verifier": verifier_bytes,
+                "raw_state": state_bytes
             }
-            return jsonify({"url": url, "state": state, "code_verifier": code_verifier})
+            return jsonify({"url": url, "state": state_str, "code_verifier": code_verifier_str})
         except Exception as e:
             logger.error("Exception generating Tesla auth URL: %s", e, exc_info=True)
             return jsonify({"error": str(e)}), 500

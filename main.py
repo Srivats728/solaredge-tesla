@@ -14,11 +14,35 @@ import yaml
 
 from solaredge import SolarEdgeClient
 from tesla_client import TeslaController
+from tesla_fleet import TeslaFleetClient
 from notifier import WhatsAppNotifier
 from controller import SolarChargingController
 from web.app import create_app
 
 stop_requested = False
+
+
+def create_tesla_client(tesla_cfg: dict):
+    """Instantiate TeslaFleetClient or TeslaController (TeslaPy) based on config."""
+    provider = tesla_cfg.get("provider", "fleet").lower()
+    fleet_cfg = tesla_cfg.get("fleet", {})
+
+    if provider == "fleet" or fleet_cfg.get("access_token") or tesla_cfg.get("access_token"):
+        cfg = fleet_cfg if fleet_cfg else {
+            "access_token": tesla_cfg.get("access_token"),
+            "refresh_token": tesla_cfg.get("refresh_token"),
+            "client_id": tesla_cfg.get("client_id"),
+            "client_secret": tesla_cfg.get("client_secret"),
+            "region": tesla_cfg.get("region", "na"),
+            "vin": tesla_cfg.get("vin")
+        }
+        return TeslaFleetClient(cfg)
+    else:
+        return TeslaController(
+            email=tesla_cfg.get("email", ""),
+            vin=tesla_cfg.get("vin")
+        )
+
 
 
 def sig_handler(signum, frame):
@@ -117,10 +141,7 @@ def main():
 
     # Initialize Tesla controller (Non-fatal if not yet authorized so Web UI can load!)
     tesla_cfg = config.get("tesla", {})
-    tesla_client = TeslaController(
-        email=tesla_cfg.get("email", ""),
-        vin=tesla_cfg.get("vin")
-    )
+    tesla_client = create_tesla_client(tesla_cfg)
     if not tesla_client.initialize():
         logger.warning("Tesla account is not yet authorized.")
         logger.warning("Open the Web Dashboard at http://<IP>:%d to authenticate your account.", args.port)
