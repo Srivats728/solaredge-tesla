@@ -6,21 +6,31 @@ Designed specifically for **Level 1 (120V)** charging without a grid consumption
 
 ---
 
-## ⚡ 1-Step Installation (Proxmox VE Shell)
+## ⚡ 1-Step Installation (Inside Debian 12 / 13 LXC)
 
-Open the **Shell** on your Proxmox VE host (or inside an Alpine LXC) and paste this single command:
+Open the **Console** or SSH into your fresh **Debian LXC** as `root` and run this single command:
 
 ```bash
-curl -sL https://raw.githubusercontent.com/Srivats728/solaredge-tesla/main/deploy/create_lxc.sh | bash
+apt-get update && apt-get install -y git && git clone https://github.com/Srivats728/solaredge-tesla.git /opt/solaredge-tesla && bash /opt/solaredge-tesla/deploy/install_debian.sh
 ```
 
-### What this command does automatically:
-1. Downloads the latest Alpine Linux LXC template.
-2. Creates an unprivileged, lightweight container (512 MB RAM, 1 vCPU, 2 GB disk).
-3. Connects the container to your local network via DHCP.
-4. Clones and installs all dependencies in an isolated Python virtual environment.
-5. Starts the OpenRC background service and launches the **Web Dashboard on port 8080**.
-6. Prints the exact web address to open in your browser (e.g., `http://192.168.40.xxx:8080`).
+### What this single command does automatically:
+1. Installs Python 3, `python3-venv`, and build prerequisites.
+2. Creates an isolated virtual environment and installs all dependencies (`teslapy`, `pymodbus`, `flask`, etc.).
+3. Configures and enables the `solaredge-tesla.service` systemd service so it runs 24/7 on boot.
+4. Starts the **Web Dashboard on port 8080**.
+5. Prints the exact IP to open in your browser (`http://<LXC-IP>:8080`).
+
+---
+
+## ⚡ Alternative: Proxmox Host Turnkey Command (Auto-create LXC)
+
+If you ever want Proxmox to automatically download a template and create the container for you from the host shell:
+
+```bash
+git clone https://github.com/Srivats728/solaredge-tesla.git /tmp/se && bash /tmp/se/deploy/create_lxc.sh
+```
+
 
 ---
 

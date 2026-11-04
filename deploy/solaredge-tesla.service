@@ -1,0 +1,17 @@
+[Unit]
+Description=SolarEdge - Tesla Solar Optimizer & Web Dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/solaredge-tesla
+ExecStart=/opt/solaredge-tesla/venv/bin/python /opt/solaredge-tesla/main.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/solaredge-tesla.log
+StandardError=append:/var/log/solaredge-tesla.err
+
+[Install]
+WantedBy=multi-user.target
