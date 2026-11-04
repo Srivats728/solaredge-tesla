@@ -782,16 +782,32 @@
               <input type="text" id="input-fleet-code" class="field-input" placeholder="https://auth.tesla.com/void/callback?code=NA_...">
             </div>
             <button class="btn btn-solid" onclick="completeFleetOAuth()">2. Exchange for Bearer Access Token</button>
+
+            <!-- Token Display and Diagnostic Feedback Box -->
+            <div id="token-display-box" style="display: none; margin-top: 20px; padding: 16px; background: #121214; border: 1px solid var(--card-border); border-radius: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="card-label">Generated Bearer Access Token</span>
+                <button class="btn btn-subtle" style="padding: 4px 10px; font-size: 0.68rem;" onclick="copyToken()">Copy Token</button>
+              </div>
+              <div class="field">
+                <input type="text" id="token-display-val" class="field-input" readonly style="font-family: monospace; font-size: 0.75rem; color: #86efac;">
+              </div>
+              <div id="fleet-diag-log" class="terminal" style="height: 140px; margin-top: 12px; font-size: 0.75rem;"></div>
+            </div>
           </div>
 
-          <details style="margin-top: 20px; font-size: 0.75rem; color: var(--text-muted);">
-            <summary style="cursor: pointer; padding: 4px 0;">Advanced: Paste Existing Bearer Token Directly</summary>
-            <div style="margin-top: 10px;">
+          <details id="advanced-token-details" style="margin-top: 20px; font-size: 0.75rem; color: var(--text-muted);" open>
+            <summary style="cursor: pointer; padding: 4px 0; font-weight: 600; color: var(--text-secondary);">Direct Bearer Token Access</summary>
+            <div style="margin-top: 12px; padding: 16px; background: #151518; border-radius: 8px; border: 1px solid var(--card-border);">
               <div class="field">
                 <label class="field-label">Bearer Access Token</label>
                 <input type="password" id="input-fleet-token" class="field-input" placeholder="eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...">
+                <div class="field-hint">Paste your Bearer token here to connect or authenticate directly.</div>
               </div>
-              <button class="btn btn-subtle" onclick="saveDirectFleetToken()">Connect with Bearer Token</button>
+              <div style="display: flex; gap: 10px; margin-top: 12px;">
+                <button class="btn btn-solid" onclick="saveDirectFleetToken()">Authenticate with Bearer Token</button>
+              </div>
+              <div id="direct-token-log" class="terminal" style="height: 140px; margin-top: 12px; font-size: 0.75rem; display: none;"></div>
             </div>
           </details>
         </div>
@@ -1241,6 +1257,13 @@
     }
   }
 
+  function copyToken() {
+    const el = document.getElementById('token-display-val');
+    el.select();
+    navigator.clipboard.writeText(el.value);
+    showBanner('Bearer access token copied to clipboard.');
+  }
+
   async function completeFleetOAuth() {
     const code = document.getElementById('input-fleet-code').value.trim();
     if (!code) {
@@ -1261,9 +1284,19 @@
         })
       });
       const data = await res.json();
-      if (data.success) {
-        showBanner(data.message || 'Tesla Fleet API connected successfully.');
-        document.getElementById('fleet-auth-step2').style.display = 'none';
+      if (data.access_token) {
+        document.getElementById('token-display-box').style.display = 'block';
+        document.getElementById('token-display-val').value = data.access_token;
+        document.getElementById('input-fleet-token').value = data.access_token;
+        if (data.diagnostic_log) {
+          document.getElementById('fleet-diag-log').textContent = data.diagnostic_log;
+        }
+      }
+      if (data.authorized) {
+        showBanner('Tesla Model 3 authorized and connected successfully!');
+        checkTeslaAccess();
+      } else if (data.success) {
+        showBanner('Tokens exchanged and saved! Check diagnostics below.');
         checkTeslaAccess();
       } else {
         showBanner(data.error || 'Token exchange failed.');
@@ -1288,8 +1321,12 @@
         body: JSON.stringify({ access_token: token, region })
       });
       const data = await res.json();
+      const logEl = document.getElementById('direct-token-log');
+      logEl.style.display = 'block';
+      logEl.textContent = data.diagnostic_log || data.error || JSON.stringify(data, null, 2);
+
       if (data.success) {
-        showBanner(data.message || 'Connected successfully.');
+        showBanner('Connected successfully to vehicle!');
         checkTeslaAccess();
       } else {
         showBanner(data.error || 'Connection failed.');
@@ -1312,7 +1349,7 @@
         badge.classList.add('active');
         const providerName = data.provider === 'fleet' ? 'Official Tesla Fleet API' : 'TeslaPy SSO';
         detail.innerHTML = `<div style="font-size: 0.9rem; font-weight: 500;">Connected via ${providerName}</div>
-          <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">Vehicles: ${data.vehicles && data.vehicles.length ? data.vehicles.join(', ') : 'Active'}</div>`;
+          <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">Vehicles: ${data.vehicles && data.vehicles.length ? data.vehicles.join(', ') : 'Model 3'}</div>`;
         if (data.provider === 'fleet') {
           switchTeslaMode('fleet');
         } else {
@@ -1321,7 +1358,11 @@
       } else {
         badge.textContent = 'Not Authorized';
         badge.classList.remove('active');
-        detail.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-secondary);">Authorization required. Enter Fleet API token below or sign in via TeslaPy.</div>`;
+        let diagText = data.diagnostic_message ? `<div style="font-size: 0.75rem; color: #ff453a; margin-top: 6px;">Tesla response: ${data.diagnostic_message}</div>` : '';
+        detail.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-secondary);">Authorization required. Exchange tokens below or paste your Bearer token in the Direct Token section.</div>${diagText}`;
+      }
+      if (data.masked_token && !document.getElementById('input-fleet-token').value) {
+        document.getElementById('input-fleet-token').placeholder = `Current token: ${data.masked_token}`;
       }
       if (data.email) {
         document.getElementById('input-tesla-email').value = data.email;

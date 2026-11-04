@@ -162,19 +162,23 @@ def create_app(controller_ref=None, config_path="config.yaml"):
             tesla_cfg = cfg.get("tesla", {})
             provider = tesla_cfg.get("provider", "fleet").lower()
 
-            if provider == "fleet" or tesla_cfg.get("fleet", {}).get("access_token"):
+            if provider == "fleet" or tesla_cfg.get("fleet", {}).get("access_token") or tesla_cfg.get("fleet", {}).get("client_id"):
                 fleet_cfg = tesla_cfg.get("fleet", {})
                 client = TeslaFleetClient(fleet_cfg)
-                initialized = client.initialize()
-                vehicles = []
-                if client.vehicle_info:
-                    v = client.vehicle_info
-                    vehicles.append(f"{v.get('display_name')} ({v.get('vin')})")
+                diag = client.test_connection()
+                if diag.get("success"):
+                    client.initialize()
+                    if controller_ref and not controller_ref.tesla:
+                        controller_ref.tesla = client
                 return jsonify({
                     "provider": "fleet",
-                    "authorized": initialized,
-                    "vehicles": vehicles,
-                    "region": fleet_cfg.get("region", "na")
+                    "authorized": diag.get("success", False),
+                    "vehicles": diag.get("vehicles", []),
+                    "region": fleet_cfg.get("region", "na"),
+                    "has_token": bool(fleet_cfg.get("access_token")),
+                    "masked_token": client._redact_token(fleet_cfg.get("access_token")),
+                    "diagnostic_message": diag.get("message"),
+                    "diagnostic_log": diag.get("log")
                 })
             else:
                 email = tesla_cfg.get("email", "")
@@ -290,33 +294,34 @@ def create_app(controller_ref=None, config_path="config.yaml"):
             with open(config_path, "w", encoding="utf-8") as f:
                 yaml.dump(cfg, f, default_flow_style=False)
 
-            # Initialize Fleet client
+            try:
+                os.chmod(config_path, 0o600)
+            except Exception:
+                pass
+
+            # Test connection with new token
             fleet_client = TeslaFleetClient(cfg["tesla"]["fleet"])
-            if fleet_client.initialize():
+            diag = fleet_client.test_connection()
+            if diag.get("success"):
+                fleet_client.initialize()
                 if controller_ref:
                     controller_ref.tesla = fleet_client
-                vehicles = []
-                if fleet_client.vehicle_info:
-                    v = fleet_client.vehicle_info
-                    vehicles.append(f"{v.get('display_name')} (VIN: {v.get('vin')})")
-                return jsonify({
-                    "success": True,
-                    "message": "Tokens exchanged successfully! Tesla Fleet API is connected.",
-                    "vehicles": vehicles
-                })
-            else:
-                return jsonify({
-                    "success": True,
-                    "message": "Tokens saved successfully! (Vehicle might be asleep, will connect when awake).",
-                    "vehicles": []
-                })
+
+            return jsonify({
+                "success": True,
+                "authorized": diag.get("success", False),
+                "message": diag.get("message"),
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "vehicles": diag.get("vehicles", []),
+                "diagnostic_log": diag.get("log")
+            })
 
         except Exception as e:
             logger.error("Exception during Fleet token exchange: %s", e, exc_info=True)
             return jsonify({"success": False, "error": str(e)}), 500
 
     @app.route("/api/fleet/configure", methods=["POST"])
-
     def api_fleet_configure():
         nonlocal controller_ref
         data = request.get_json() or {}
@@ -338,26 +343,40 @@ def create_app(controller_ref=None, config_path="config.yaml"):
         cfg["tesla"]["fleet"] = {
             "access_token": access_token,
             "refresh_token": refresh_token,
-            "client_id": client_id,
-            "client_secret": client_secret,
+            "client_id": client_id or cfg.get("tesla", {}).get("fleet", {}).get("client_id"),
+            "client_secret": client_secret or cfg.get("tesla", {}).get("fleet", {}).get("client_secret"),
             "region": region
         }
 
         with open(config_path, "w", encoding="utf-8") as f:
             yaml.dump(cfg, f, default_flow_style=False)
 
+        try:
+            os.chmod(config_path, 0o600)
+        except Exception:
+            pass
+
         # Test connection
         fleet_client = TeslaFleetClient(cfg["tesla"]["fleet"])
-        if fleet_client.initialize():
+        diag = fleet_client.test_connection()
+        if diag.get("success"):
+            fleet_client.initialize()
             if controller_ref:
                 controller_ref.tesla = fleet_client
-            vehicles = []
-            if fleet_client.vehicle_info:
-                v = fleet_client.vehicle_info
-                vehicles.append(f"{v.get('display_name')} (VIN: {v.get('vin')})")
             return jsonify({
                 "success": True,
-                "message": "Tesla Fleet API connected successfully!",
+                "authorized": True,
+                "message": diag.get("message"),
+                "vehicles": diag.get("vehicles", []),
+                "diagnostic_log": diag.get("log")
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "authorized": False,
+                "error": diag.get("message"),
+                "diagnostic_log": diag.get("log")
+            }), 400
                 "vehicles": vehicles
             })
         else:
