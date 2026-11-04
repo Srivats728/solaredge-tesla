@@ -1,0 +1,23 @@
+#!/sbin/openrc-run
+
+name="SolarEdge Tesla Optimizer"
+description="Automated Solar Charging Optimizer for SolarEdge and Tesla"
+
+directory="/opt/solaredge-tesla"
+command="/opt/solaredge-tesla/venv/bin/python"
+command_args="/opt/solaredge-tesla/main.py"
+command_user="root"
+command_background="yes"
+
+pidfile="/run/solaredge-tesla.pid"
+output_log="/var/log/solaredge-tesla.log"
+error_log="/var/log/solaredge-tesla.err"
+
+depend() {
+    need net
+    after firewall
+}
+
+start_pre() {
+    checkpath -f -m 0644 -o root:root "$output_log" "$error_log"
+}

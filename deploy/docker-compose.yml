@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  solaredge-tesla:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: solaredge-tesla
+    restart: unless-stopped
+    volumes:
+      - ../config.yaml:/app/config.yaml:ro
+      - ../cache.json:/app/cache.json
+      - ../logs:/app/logs
+    environment:
+      - TZ=America/Chicago
