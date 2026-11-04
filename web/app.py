@@ -8,7 +8,9 @@ import os
 import sys
 import logging
 import time
+import urllib.parse
 import yaml
+import requests
 from flask import Flask, render_template, jsonify, request
 from flask.json.provider import DefaultJSONProvider
 import teslapy
@@ -192,7 +194,129 @@ def create_app(controller_ref=None, config_path="config.yaml"):
         except Exception as e:
             return jsonify({"authorized": False, "error": str(e)})
 
+    @app.route("/api/fleet/oauth-url", methods=["POST"])
+    def api_fleet_oauth_url():
+        data = request.get_json() or {}
+        client_id = data.get("client_id", "").strip()
+        redirect_uri = data.get("redirect_uri", "").strip() or "https://auth.tesla.com/void/callback"
+        scopes = data.get("scope", "openid vehicle_device_data vehicle_charging_cmds offline_access")
+
+        if not client_id:
+            return jsonify({"error": "Client ID is required"}), 400
+
+        state = os.urandom(16).hex()
+        params = {
+            "client_id": client_id,
+            "locale": "en-US",
+            "prompt": "login",
+            "redirect_uri": redirect_uri,
+            "response_type": "code",
+            "scope": scopes,
+            "state": state
+        }
+        encoded_params = urllib.parse.urlencode(params)
+        auth_url = f"https://auth.tesla.com/oauth2/v3/authorize?{encoded_params}"
+
+        oauth_sessions[client_id] = {
+            "state": state,
+            "redirect_uri": redirect_uri
+        }
+
+        return jsonify({"url": auth_url, "state": state, "redirect_uri": redirect_uri})
+
+    @app.route("/api/fleet/exchange-code", methods=["POST"])
+    def api_fleet_exchange_code():
+        nonlocal controller_ref
+        data = request.get_json() or {}
+        client_id = data.get("client_id", "").strip()
+        client_secret = data.get("client_secret", "").strip()
+        code_input = data.get("code", "").strip()
+        redirect_uri = data.get("redirect_uri", "").strip() or "https://auth.tesla.com/void/callback"
+        region = data.get("region", "na").strip().lower()
+
+        if not (client_id and client_secret and code_input):
+            return jsonify({"error": "Client ID, Client Secret, and redirect URL/code are required"}), 400
+
+        # Extract code from URL if full URL was pasted
+        code = code_input
+        if "code=" in code_input:
+            try:
+                parsed = urllib.parse.urlparse(code_input)
+                qs = urllib.parse.parse_qs(parsed.query)
+                if "code" in qs:
+                    code = qs["code"][0]
+            except Exception:
+                pass
+
+        token_payload = {
+            "grant_type": "authorization_code",
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "code": code,
+            "redirect_uri": redirect_uri,
+            "audience": "https://fleet-api.prd.na.vn.cloud.tesla.com" if region == "na" else "https://fleet-api.prd.eu.vn.cloud.tesla.com"
+        }
+
+        try:
+            logger.info("Exchanging authorization code for Fleet API Bearer access token...")
+            resp = requests.post("https://auth.tesla.com/oauth2/v3/token", json=token_payload, timeout=20)
+            if resp.status_code != 200:
+                logger.error("Fleet token exchange failed: %d - %s", resp.status_code, resp.text)
+                return jsonify({"success": False, "error": f"Tesla Auth returned error ({resp.status_code}): {resp.text}"}), 400
+
+            token_data = resp.json()
+            access_token = token_data.get("access_token")
+            refresh_token = token_data.get("refresh_token")
+
+            if not access_token:
+                return jsonify({"success": False, "error": "No access_token returned by Tesla"}), 400
+
+            # Update configuration
+            with open(config_path, "r", encoding="utf-8") as f:
+                cfg = yaml.safe_load(f) or {}
+
+            if "tesla" not in cfg:
+                cfg["tesla"] = {}
+            cfg["tesla"]["provider"] = "fleet"
+            cfg["tesla"]["fleet"] = {
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "region": region,
+                "redirect_uri": redirect_uri
+            }
+
+            with open(config_path, "w", encoding="utf-8") as f:
+                yaml.dump(cfg, f, default_flow_style=False)
+
+            # Initialize Fleet client
+            fleet_client = TeslaFleetClient(cfg["tesla"]["fleet"])
+            if fleet_client.initialize():
+                if controller_ref:
+                    controller_ref.tesla = fleet_client
+                vehicles = []
+                if fleet_client.vehicle_info:
+                    v = fleet_client.vehicle_info
+                    vehicles.append(f"{v.get('display_name')} (VIN: {v.get('vin')})")
+                return jsonify({
+                    "success": True,
+                    "message": "Tokens exchanged successfully! Tesla Fleet API is connected.",
+                    "vehicles": vehicles
+                })
+            else:
+                return jsonify({
+                    "success": True,
+                    "message": "Tokens saved successfully! (Vehicle might be asleep, will connect when awake).",
+                    "vehicles": []
+                })
+
+        except Exception as e:
+            logger.error("Exception during Fleet token exchange: %s", e, exc_info=True)
+            return jsonify({"success": False, "error": str(e)}), 500
+
     @app.route("/api/fleet/configure", methods=["POST"])
+
     def api_fleet_configure():
         nonlocal controller_ref
         data = request.get_json() or {}

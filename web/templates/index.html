@@ -732,45 +732,68 @@
       <!-- PANE A: TESLA FLEET API -->
       <div id="pane-tesla-fleet">
         <div style="background: #161618; border: 1px solid var(--card-border); border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-          <div class="card-label" style="margin-bottom: 8px;">Official Tesla Fleet API Configuration</div>
+          <div class="card-label" style="margin-bottom: 8px;">Official Tesla Fleet API (Client ID & Secret)</div>
           <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px;">
-            Enter your Tesla Fleet API Access Token or Refresh Token from your Tesla Developer account or token generator.
+            Enter the <strong>Client ID</strong> and <strong>Client Secret</strong> from your Tesla Developer app. The system will guide you through signing in and automatically retrieve your Bearer access token.
           </p>
 
-          <div class="field">
-            <label class="field-label">Access Token / Bearer Token</label>
-            <input type="password" id="input-fleet-token" class="field-input" placeholder="eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...">
-            <div class="field-hint">Paste your Fleet API Bearer access token.</div>
+          <div class="form-row">
+            <div class="field">
+              <label class="field-label">Client ID</label>
+              <input type="text" id="input-fleet-client-id" class="field-input" placeholder="Paste Client ID from developer.tesla.com">
+            </div>
+            <div class="field">
+              <label class="field-label">Client Secret</label>
+              <input type="password" id="input-fleet-client-secret" class="field-input" placeholder="Paste Client Secret">
+            </div>
           </div>
 
           <div class="form-row">
             <div class="field">
-              <label class="field-label">Fleet API Region</label>
+              <label class="field-label">Redirect URI (Configured in Tesla Developer App)</label>
+              <input type="text" id="input-fleet-redirect-uri" class="field-input" value="https://auth.tesla.com/void/callback">
+              <div class="field-hint">Must match the Redirect URI in your Tesla Developer App settings.</div>
+            </div>
+            <div class="field">
+              <label class="field-label">Region</label>
               <select id="input-fleet-region" class="field-input" style="height: 42px;">
                 <option value="na" selected>North America & Asia-Pacific (fleet-api.prd.na)</option>
                 <option value="eu">Europe & Middle East (fleet-api.prd.eu)</option>
               </select>
             </div>
-            <div class="field">
-              <label class="field-label">Refresh Token (Optional)</label>
-              <input type="password" id="input-fleet-refresh" class="field-input" placeholder="Optional refresh token">
-            </div>
           </div>
 
-          <div class="form-row">
-            <div class="field">
-              <label class="field-label">Client ID (Optional)</label>
-              <input type="text" id="input-fleet-client-id" class="field-input" placeholder="Optional Client ID">
-            </div>
-            <div class="field">
-              <label class="field-label">Client Secret (Optional)</label>
-              <input type="password" id="input-fleet-client-secret" class="field-input" placeholder="Optional Client Secret">
-            </div>
+          <div style="margin-top: 14px; margin-bottom: 16px;">
+            <button class="btn btn-solid" onclick="startFleetOAuth()">1. Generate Sign-In Link</button>
           </div>
 
-          <div style="margin-top: 16px;">
-            <button class="btn btn-solid" onclick="saveFleetConfig()">Connect & Verify via Tesla Fleet API</button>
+          <div id="fleet-auth-step2" style="display: none; background: #1a1a1c; border-radius: 8px; padding: 18px; margin-top: 16px;">
+            <div class="card-label" style="margin-bottom: 8px;">Step 1: Sign in with your Tesla Account</div>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px;">
+              Click below to grant charging and vehicle data access to your Model 3:
+            </p>
+            <a id="fleet-oauth-link" href="#" target="_blank" class="btn btn-solid" style="margin-bottom: 18px;">Open Tesla Authorization Page</a>
+
+            <div class="card-label" style="margin-bottom: 8px;">Step 2: Submit Callback URL</div>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px;">
+              After signing in, your browser will reach the redirect page. Copy the entire URL from the browser's address bar (containing <code>code=...</code>) and paste it below:
+            </p>
+            <div class="field">
+              <input type="text" id="input-fleet-code" class="field-input" placeholder="https://auth.tesla.com/void/callback?code=NA_...">
+            </div>
+            <button class="btn btn-solid" onclick="completeFleetOAuth()">2. Exchange for Bearer Access Token</button>
           </div>
+
+          <details style="margin-top: 20px; font-size: 0.75rem; color: var(--text-muted);">
+            <summary style="cursor: pointer; padding: 4px 0;">Advanced: Paste Existing Bearer Token Directly</summary>
+            <div style="margin-top: 10px;">
+              <div class="field">
+                <label class="field-label">Bearer Access Token</label>
+                <input type="password" id="input-fleet-token" class="field-input" placeholder="eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...">
+              </div>
+              <button class="btn btn-subtle" onclick="saveDirectFleetToken()">Connect with Bearer Token</button>
+            </div>
+          </details>
         </div>
       </div>
 
@@ -909,17 +932,35 @@
     <div class="wizard-pane" id="wiz-pane-3">
       <div class="wizard-title">Tesla Vehicle Access</div>
       <div class="wizard-desc">
-        Connect your vehicle using the official Tesla Fleet API (paste access token) or via Tesla account sign-in.
+        Connect your vehicle using your official Tesla Developer Client ID & Secret, or via direct account sign-in.
       </div>
 
-      <div class="field">
-        <label class="field-label">Option A: Tesla Fleet API Access Token (Recommended)</label>
-        <input type="password" id="wiz-fleet-token" class="field-input" placeholder="Paste Fleet API Bearer Token">
-        <div class="field-hint">Paste your access token generated from Tesla Developer Portal or Tesla Auth.</div>
+      <div class="form-section-title">Option A: Tesla Developer App (Client ID & Secret)</div>
+      <div class="form-row">
+        <div class="field">
+          <label class="field-label">Client ID</label>
+          <input type="text" id="wiz-fleet-client-id" class="field-input" placeholder="Paste Client ID">
+        </div>
+        <div class="field">
+          <label class="field-label">Client Secret</label>
+          <input type="password" id="wiz-fleet-client-secret" class="field-input" placeholder="Paste Client Secret">
+        </div>
       </div>
-      <div style="margin-bottom: 24px;">
-        <button class="btn btn-solid" onclick="wizardSaveFleetToken()">Connect via Fleet API</button>
+      <div style="margin-bottom: 14px;">
+        <button class="btn btn-solid" onclick="wizStartFleetOAuth()">1. Generate Sign-In Link</button>
       </div>
+
+      <div id="wiz-fleet-step2" style="display: none; background: #1a1a1c; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+        <div style="margin-bottom: 12px;">
+          <a id="wiz-fleet-oauth-link" href="#" target="_blank" class="btn btn-solid">Sign In With Tesla Developer App</a>
+        </div>
+        <div class="field">
+          <label class="field-label">Paste Redirect URL</label>
+          <input type="text" id="wiz-fleet-callback" class="field-input" placeholder="https://auth.tesla.com/void/callback?code=...">
+        </div>
+        <button class="btn btn-solid" onclick="wizCompleteFleetOAuth()">2. Complete Fleet Authorization</button>
+      </div>
+      <div id="wiz-tesla-msg" style="font-size: 0.8rem; color: var(--text-primary); margin-top: 8px; margin-bottom: 16px;"></div>
 
       <div class="form-section-title">Option B: Tesla Account Login (TeslaPy)</div>
       <div class="field">
@@ -939,7 +980,6 @@
         </div>
         <button class="btn btn-solid" onclick="wizardCompleteTeslaAuth()">Verify & Save Credentials</button>
       </div>
-      <div id="wiz-tesla-msg" style="font-size: 0.8rem; color: var(--text-primary); margin-top: 8px;"></div>
       <div class="wizard-footer">
         <button class="btn btn-subtle" onclick="openSetupWizard(2)">Back</button>
         <button class="btn btn-solid" onclick="openSetupWizard(4)">Next: Review</button>
@@ -1168,40 +1208,94 @@
     document.getElementById('btn-sub-teslapy').classList.toggle('active', mode === 'teslapy');
   }
 
-  async function saveFleetConfig() {
-    const token = document.getElementById('input-fleet-token').value.trim();
-    const region = document.getElementById('input-fleet-region').value;
-    const refresh = document.getElementById('input-fleet-refresh').value.trim();
+  let fleetOAuth = { clientId: '', clientSecret: '', redirectUri: '', region: 'na' };
+
+  async function startFleetOAuth() {
     const clientId = document.getElementById('input-fleet-client-id').value.trim();
     const clientSecret = document.getElementById('input-fleet-client-secret').value.trim();
+    const redirectUri = document.getElementById('input-fleet-redirect-uri').value.trim() || 'https://auth.tesla.com/void/callback';
+    const region = document.getElementById('input-fleet-region').value;
 
-    if (!token && !refresh) {
-      alert('Please enter your Fleet API Access Token or Refresh Token.');
+    if (!clientId || !clientSecret) {
+      alert('Please enter both Client ID and Client Secret');
       return;
     }
 
-    showBanner('Connecting to Tesla Fleet API...');
     try {
-      const res = await fetch('/api/fleet/configure', {
+      const res = await fetch('/api/fleet/oauth-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: clientId, redirect_uri: redirectUri })
+      });
+      const data = await res.json();
+      if (data.url) {
+        fleetOAuth = { clientId, clientSecret, redirectUri, region };
+        document.getElementById('fleet-oauth-link').href = data.url;
+        document.getElementById('fleet-auth-step2').style.display = 'block';
+        showBanner('Authorization link generated. Open link to sign in on Tesla.');
+      } else {
+        showBanner(data.error || 'Failed to generate link');
+      }
+    } catch (e) {
+      showBanner('Error: ' + e);
+    }
+  }
+
+  async function completeFleetOAuth() {
+    const code = document.getElementById('input-fleet-code').value.trim();
+    if (!code) {
+      alert('Please paste the redirect URL containing code=...');
+      return;
+    }
+    showBanner('Exchanging code for Bearer access token...');
+    try {
+      const res = await fetch('/api/fleet/exchange-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          access_token: token,
-          refresh_token: refresh,
-          client_id: clientId,
-          client_secret: clientSecret,
-          region: region
+          client_id: fleetOAuth.clientId,
+          client_secret: fleetOAuth.clientSecret,
+          code: code,
+          redirect_uri: fleetOAuth.redirectUri,
+          region: fleetOAuth.region
         })
       });
       const data = await res.json();
       if (data.success) {
         showBanner(data.message || 'Tesla Fleet API connected successfully.');
+        document.getElementById('fleet-auth-step2').style.display = 'none';
+        checkTeslaAccess();
+      } else {
+        showBanner(data.error || 'Token exchange failed.');
+      }
+    } catch (e) {
+      showBanner('Error: ' + e);
+    }
+  }
+
+  async function saveDirectFleetToken() {
+    const token = document.getElementById('input-fleet-token').value.trim();
+    const region = document.getElementById('input-fleet-region').value;
+    if (!token) {
+      alert('Please enter your Bearer token');
+      return;
+    }
+    try {
+      showBanner('Verifying token with Tesla...');
+      const res = await fetch('/api/fleet/configure', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: token, region })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showBanner(data.message || 'Connected successfully.');
         checkTeslaAccess();
       } else {
         showBanner(data.error || 'Connection failed.');
       }
     } catch (e) {
-      showBanner('Error connecting to Fleet API: ' + e);
+      showBanner('Error: ' + e);
     }
   }
 
@@ -1352,25 +1446,61 @@
     }
   }
 
-  async function wizardSaveFleetToken() {
-    const token = document.getElementById('wiz-fleet-token').value.trim();
-    if (!token) {
-      alert('Please enter your Fleet API Access Token');
+  async function wizStartFleetOAuth() {
+    const clientId = document.getElementById('wiz-fleet-client-id').value.trim();
+    const clientSecret = document.getElementById('wiz-fleet-client-secret').value.trim();
+    if (!clientId || !clientSecret) {
+      alert('Please enter both Client ID and Client Secret');
       return;
     }
     const msg = document.getElementById('wiz-tesla-msg');
-    msg.textContent = 'Connecting to Tesla Fleet API...';
+    msg.textContent = 'Generating authorization link...';
     try {
-      const res = await fetch('/api/fleet/configure', {
+      const res = await fetch('/api/fleet/oauth-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ access_token: token, region: 'na' })
+        body: JSON.stringify({ client_id: clientId, redirect_uri: 'https://auth.tesla.com/void/callback' })
+      });
+      const data = await res.json();
+      if (data.url) {
+        fleetOAuth = { clientId, clientSecret, redirectUri: 'https://auth.tesla.com/void/callback', region: 'na' };
+        document.getElementById('wiz-fleet-oauth-link').href = data.url;
+        document.getElementById('wiz-fleet-step2').style.display = 'block';
+        msg.textContent = 'Link generated. Click below to sign in on Tesla.';
+      } else {
+        msg.textContent = data.error || 'Failed to generate link';
+      }
+    } catch (e) {
+      msg.textContent = 'Error: ' + e;
+    }
+  }
+
+  async function wizCompleteFleetOAuth() {
+    const code = document.getElementById('wiz-fleet-callback').value.trim();
+    const msg = document.getElementById('wiz-tesla-msg');
+    if (!code) {
+      alert('Please paste the redirect URL containing code=...');
+      return;
+    }
+    msg.textContent = 'Exchanging code for Bearer access token...';
+    try {
+      const res = await fetch('/api/fleet/exchange-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: fleetOAuth.clientId,
+          client_secret: fleetOAuth.clientSecret,
+          code: code,
+          redirect_uri: fleetOAuth.redirectUri,
+          region: fleetOAuth.region
+        })
       });
       const data = await res.json();
       if (data.success) {
-        msg.textContent = 'Tesla Fleet API connected successfully: ' + (data.vehicles && data.vehicles.length ? data.vehicles.join(', ') : 'Vehicle connected');
+        msg.textContent = 'Connected successfully: ' + (data.vehicles && data.vehicles.length ? data.vehicles.join(', ') : 'Vehicle active');
+        document.getElementById('wiz-fleet-step2').style.display = 'none';
       } else {
-        msg.textContent = data.error || 'Connection failed';
+        msg.textContent = data.error || 'Exchange failed';
       }
     } catch (e) {
       msg.textContent = 'Error: ' + e;
