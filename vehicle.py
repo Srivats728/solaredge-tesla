@@ -406,8 +406,22 @@ class TeslaFleetDirectClient(BaseVehicleClient):
                     cli_args = cmd_map[action]
                     env = os.environ.copy()
                     env["TESLA_AUTH_TOKEN"] = self.access_token
+                    env["TESLA_KEY_FILE"] = self.key_file
+                    env["TESLA_VIN"] = self.vin
+
+                    cmd = [self.binary_path, "-vin", self.vin, "-key-file", self.key_file]
+                    token_file = "/tmp/.tesla_token"
+                    try:
+                        with open(token_file, "w", encoding="utf-8") as tf:
+                            tf.write(self.access_token)
+                        os.chmod(token_file, 0o600)
+                        cmd.extend(["-token-file", token_file])
+                    except Exception:
+                        pass
+                    cmd.extend(cli_args)
+
                     res = subprocess.run(
-                        [self.binary_path, "-vin", self.vin, "-key-file", self.key_file] + cli_args,
+                        cmd,
                         capture_output=True, text=True, timeout=20, env=env
                     )
                     if res.returncode == 0:
