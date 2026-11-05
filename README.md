@@ -28,14 +28,23 @@ If your Proxmox server, Debian container, or Raspberry Pi is within Bluetooth ra
 - **No Tesla developer account, no domain registration, no tokens, and zero cloud dependency.**
 
 ### Steps:
-1. In the Web Dashboard (`http://<LXC-IP>:8080`), select **Bluetooth Low Energy (BLE)**.
-2. Enter your car's **VIN** and click **Generate Virtual Key** (creates `private-key.pem`).
-3. Pair the key to your Model 3 once by running this in your terminal:
+1. **Compile `tesla-control` in your Debian LXC**:
+   ```bash
+   git clone https://github.com/teslamotors/vehicle-command.git /tmp/vehicle-command
+   cd /tmp/vehicle-command
+   go build ./cmd/tesla-control
+   cp tesla-control /usr/local/bin/tesla-control
+   chmod +x /usr/local/bin/tesla-control
+   cd /opt/solaredge-tesla && rm -rf /tmp/vehicle-command
+   ```
+2. In the Web Dashboard (`http://<LXC-IP>:8080`), select **Bluetooth Low Energy (BLE)**.
+3. Enter your car's **VIN** and click **Generate Virtual Key** (creates `private-key.pem`).
+4. Pair the key to your Model 3 once by running this in your terminal:
    ```bash
    tesla-control -vin <YOUR_VIN> -ble add-key-request private-key.pem owner
    ```
-4. Look at your Model 3's center touchscreen: it will prompt **"Key card required to authorize key"**. Tap your physical Tesla Key Card once on the center console.
-5. Click **Save Vehicle** and **Test Connection** in the dashboard. The system now commands your car directly over Bluetooth for free!
+5. Look at your Model 3's center touchscreen: it will prompt **"Key card required to authorize key"**. Tap your physical Tesla Key Card once on the center console.
+6. Click **Save Vehicle** and **Test Connection** in the dashboard. The system now commands your car directly over Bluetooth for free!
 
 ---
 
