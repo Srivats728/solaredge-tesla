@@ -28,6 +28,62 @@ class CustomJSONProvider(DefaultJSONProvider):
         return super().default(obj)
 
 
+def generate_or_get_ec_keys(base_dir="."):
+    """Generate or retrieve EC SECP256R1 key pair for Tesla Fleet API."""
+    priv_path = os.path.join(base_dir, "private-key.pem")
+    pub_path = os.path.join(base_dir, "public-key.pem")
+
+    if os.path.exists(pub_path) and os.path.exists(priv_path):
+        try:
+            with open(pub_path, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if content:
+                    return content
+        except Exception:
+            pass
+
+    # Method 1: Try cryptography library
+    try:
+        from cryptography.hazmat.primitives.asymmetric import ec
+        from cryptography.hazmat.primitives import serialization
+        key = ec.generate_private_key(ec.SECP256R1())
+        priv_pem = key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+        pub_pem = key.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        with open(priv_path, "wb") as f:
+            f.write(priv_pem)
+        with open(pub_path, "wb") as f:
+            f.write(pub_pem)
+        try:
+            os.chmod(priv_path, 0o600)
+        except Exception:
+            pass
+        return pub_pem.decode("utf-8").strip()
+    except Exception:
+        pass
+
+    # Method 2: Fallback to system openssl CLI
+    try:
+        import subprocess
+        subprocess.run(["openssl", "ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", priv_path], check=True)
+        subprocess.run(["openssl", "ec", "-in", priv_path, "-pubout", "-out", pub_path], check=True)
+        try:
+            os.chmod(priv_path, 0o600)
+        except Exception:
+            pass
+        with open(pub_path, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except Exception as e:
+        logger.error("Failed to generate EC keys: %s", e)
+        return ""
+
+
 def create_app(controller_ref=None, config_path="config.yaml"):
     template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
     app = Flask(__name__, template_folder=template_dir)
@@ -173,6 +229,7 @@ def create_app(controller_ref=None, config_path="config.yaml"):
                 return jsonify({
                     "provider": "fleet",
                     "client_id": fleet_cfg.get("client_id", ""),
+                    "domain": fleet_cfg.get("domain", ""),
                     "authorized": diag.get("success", False),
                     "vehicles": diag.get("vehicles", []),
                     "region": fleet_cfg.get("region", "na"),
@@ -241,28 +298,40 @@ def create_app(controller_ref=None, config_path="config.yaml"):
             logger.warning("Token exchange exception: %s. Using token directly.", ex)
             access_token = token
 
-        # Step B: Test with Tesla Owner API
+        # Step B: Test with Tesla Fleet API and Owner API
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",
             "User-Agent": "Tesla/4.30.0"
         }
 
+        candidate_urls = [
+            ("https://fleet-api.prd.na.vn.cloud.tesla.com/api/1/vehicles", "Official Fleet API (NA)"),
+            ("https://fleet-api.prd.eu.vn.cloud.tesla.com/api/1/vehicles", "Official Fleet API (EU)"),
+            ("https://owner-api.teslamotors.com/api/1/vehicles", "Legacy Owner API")
+        ]
+
         vehicles = []
         success = False
         error_msg = ""
 
-        try:
-            url = "https://owner-api.teslamotors.com/api/1/vehicles"
-            v_resp = requests.get(url, headers=headers, timeout=15)
-            if v_resp.status_code == 200:
-                v_data = v_resp.json().get("response", [])
-                vehicles = [f"{v.get('display_name')} (VIN: {v.get('vin')})" for v in v_data]
-                success = True
-            else:
-                error_msg = f"Tesla returned HTTP {v_resp.status_code}: {v_resp.text}"
-        except Exception as ex:
-            error_msg = f"Connection error: {ex}"
+        for test_url, api_name in candidate_urls:
+            try:
+                v_resp = requests.get(test_url, headers=headers, timeout=12)
+                if v_resp.status_code == 200:
+                    v_data = v_resp.json().get("response", [])
+                    vehicles = [f"{v.get('display_name')} (VIN: {v.get('vin')})" for v in v_data]
+                    success = True
+                    logger.info("Successfully connected to vehicle via %s.", api_name)
+                    break
+                elif v_resp.status_code == 412:
+                    error_msg = "Account must be registered with Tesla Fleet API (HTTP 412). Please complete the 1-click Partner Registration in the Developer Fleet tab."
+                elif v_resp.status_code == 403:
+                    error_msg = f"{api_name} returned HTTP 403: Tesla requires Fleet API access."
+                else:
+                    error_msg = f"{api_name} returned HTTP {v_resp.status_code}: {v_resp.text}"
+            except Exception as ex:
+                error_msg = f"Connection error ({api_name}): {ex}"
 
         if success:
             user_email = data.get("email", "").strip()
@@ -362,6 +431,119 @@ def create_app(controller_ref=None, config_path="config.yaml"):
 
         return jsonify({"success": True, "provider": provider})
 
+    @app.route("/api/fleet/public-key", methods=["GET"])
+    def api_fleet_public_key():
+        try:
+            pub_key = generate_or_get_ec_keys()
+            return jsonify({"success": True, "public_key": pub_key})
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)}), 500
+
+    @app.route("/.well-known/appspecific/com.tesla.3p.public-key.pem", methods=["GET"])
+    def serve_tesla_public_key():
+        try:
+            pub_key = generate_or_get_ec_keys()
+            if pub_key:
+                return pub_key, 200, {"Content-Type": "text/plain"}
+            return "Key not generated yet", 404
+        except Exception as e:
+            return f"Error: {e}", 500
+
+    @app.route("/api/fleet/register-partner", methods=["POST"])
+    def api_fleet_register_partner():
+        data = request.get_json() or {}
+        client_id = data.get("client_id", "").strip()
+        client_secret = data.get("client_secret", "").strip()
+        domain = data.get("domain", "").strip()
+        region = data.get("region", "na").strip().lower()
+
+        if not (client_id and client_secret and domain):
+            return jsonify({"success": False, "error": "Client ID, Client Secret, and Domain are required."}), 400
+
+        # Clean domain (remove https://, http://, and paths)
+        clean_domain = domain.replace("https://", "").replace("http://", "").split("/")[0].strip()
+
+        base_url = REGIONS.get(region, REGIONS["na"])
+        logs = []
+
+        # Step 1: Obtain Partner Token via client_credentials
+        logs.append(f"Requesting Partner Token from Tesla OAuth for Client ID {client_id[:6]}...")
+        try:
+            token_payload = {
+                "grant_type": "client_credentials",
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "scope": "openid vehicle_device_data vehicle_cmds vehicle_charging_cmds",
+                "audience": base_url
+            }
+            token_resp = requests.post(
+                "https://auth.tesla.com/oauth2/v3/token",
+                data=token_payload,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=15
+            )
+            logs.append(f"OAuth response: HTTP {token_resp.status_code}")
+            if token_resp.status_code != 200:
+                logs.append(f"OAuth error body: {token_resp.text}")
+                return jsonify({
+                    "success": False,
+                    "error": f"Failed to acquire Partner Token ({token_resp.status_code}): {token_resp.text}",
+                    "log": "\n".join(logs)
+                }), 400
+
+            partner_token = token_resp.json().get("access_token")
+        except Exception as ex:
+            logs.append(f"Exception during OAuth: {ex}")
+            return jsonify({"success": False, "error": str(ex), "log": "\n".join(logs)}), 500
+
+        # Step 2: Register partner account
+        reg_url = f"{base_url}/api/1/partner_accounts"
+        logs.append(f"Registering domain '{clean_domain}' at {reg_url}...")
+        try:
+            reg_resp = requests.post(
+                reg_url,
+                headers={
+                    "Authorization": f"Bearer {partner_token}",
+                    "Content-Type": "application/json"
+                },
+                json={"domain": clean_domain},
+                timeout=20
+            )
+            logs.append(f"Tesla response: HTTP {reg_resp.status_code}")
+            logs.append(f"Response body: {reg_resp.text}")
+
+            if reg_resp.status_code in [200, 201]:
+                # Update config.yaml with developer credentials
+                with open(config_path, "r", encoding="utf-8") as f:
+                    cfg = yaml.safe_load(f) or {}
+                if "tesla" not in cfg:
+                    cfg["tesla"] = {}
+                cfg["tesla"]["provider"] = "fleet"
+                if "fleet" not in cfg["tesla"]:
+                    cfg["tesla"]["fleet"] = {}
+                cfg["tesla"]["fleet"]["client_id"] = client_id
+                cfg["tesla"]["fleet"]["client_secret"] = client_secret
+                cfg["tesla"]["fleet"]["region"] = region
+                cfg["tesla"]["fleet"]["domain"] = clean_domain
+                with open(config_path, "w", encoding="utf-8") as f:
+                    yaml.dump(cfg, f, default_flow_style=False)
+
+                return jsonify({
+                    "success": True,
+                    "message": f"Partner account registered successfully with domain {clean_domain}!",
+                    "log": "\n".join(logs),
+                    "details": reg_resp.json() if reg_resp.text else {}
+                })
+            else:
+                return jsonify({
+                    "success": False,
+                    "error": f"Registration returned HTTP {reg_resp.status_code}: {reg_resp.text}",
+                    "log": "\n".join(logs)
+                }), 400
+
+        except Exception as ex:
+            logs.append(f"Exception during registration: {ex}")
+            return jsonify({"success": False, "error": str(ex), "log": "\n".join(logs)}), 500
 
     @app.route("/api/fleet/oauth-url", methods=["POST"])
     def api_fleet_oauth_url():

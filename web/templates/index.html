@@ -792,84 +792,103 @@
       <!-- PANE 3: TESLA FLEET API -->
       <div id="pane-tesla-fleet" style="display: none;">
         <div style="background: #161618; border: 1px solid var(--card-border); border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-          <div class="card-label" style="margin-bottom: 8px;">Official Tesla Fleet API (Client ID & Secret)</div>
+          <div class="card-label" style="margin-bottom: 8px;">Official Tesla Fleet API (Developer Account)</div>
           <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px;">
-            For registered developer accounts with domain verification. Enter the <strong>Client ID</strong> and <strong>Client Secret</strong> from your Tesla Developer app.
+            Connect using your registered developer credentials from <strong>developer.tesla.com</strong>.
           </p>
 
-          <div class="form-row">
-            <div class="field">
-              <label class="field-label">Client ID</label>
-              <input type="text" id="input-fleet-client-id" class="field-input" placeholder="Paste Client ID from developer.tesla.com">
+          <!-- SECTION 1: PUBLIC KEY & PARTNER REGISTRATION -->
+          <div style="background: #111113; border: 1px solid #28282c; border-radius: 6px; padding: 16px; margin-bottom: 20px;">
+            <div style="color: var(--text-primary); font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.08em;">
+              1. One-Time Partner Registration
             </div>
-            <div class="field">
-              <label class="field-label">Client Secret</label>
-              <input type="password" id="input-fleet-client-secret" class="field-input" placeholder="Paste Client Secret">
+            <p style="font-size: 0.76rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">
+              Tesla requires every Developer App to host an EC public key on an allowed domain and register with Tesla before querying vehicles.
+            </p>
+
+            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap;">
+              <button class="btn btn-subtle" style="font-size: 0.72rem; padding: 6px 14px;" onclick="loadAndCopyPublicKey()">Copy Public Key (.pem)</button>
+              <a href="https://fleetkey.cc" target="_blank" class="btn btn-subtle" style="font-size: 0.72rem; padding: 6px 14px; text-decoration: none;">Open fleetkey.cc (Free Key Host)</a>
             </div>
+
+            <div class="form-row">
+              <div class="field">
+                <label class="field-label">Client ID</label>
+                <input type="text" id="input-fleet-client-id" class="field-input" placeholder="Paste Client ID from developer.tesla.com">
+              </div>
+              <div class="field">
+                <label class="field-label">Client Secret</label>
+                <input type="password" id="input-fleet-client-secret" class="field-input" placeholder="Paste Client Secret">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="field">
+                <label class="field-label">Registered Domain / FleetKey Subdomain</label>
+                <input type="text" id="input-fleet-domain" class="field-input" placeholder="e.g. abc123.fleetkey.net or your-domain.com">
+                <div class="field-hint">Must match the Allowed Origin in your Tesla Developer App settings.</div>
+              </div>
+              <div class="field">
+                <label class="field-label">Region</label>
+                <select id="input-fleet-region" class="field-input" style="height: 42px;">
+                  <option value="na" selected>North America & Asia-Pacific (fleet-api.prd.na)</option>
+                  <option value="eu">Europe & Middle East (fleet-api.prd.eu)</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="margin-top: 10px;">
+              <button class="btn btn-solid" id="btn-register-partner" onclick="registerPartnerAccount()">Register Partner Account with Tesla</button>
+            </div>
+            <div id="partner-reg-log" class="terminal" style="display: none; height: 120px; margin-top: 12px; font-size: 0.72rem;"></div>
           </div>
 
-          <div class="form-row">
+          <!-- SECTION 2: VEHICLE AUTHORIZATION -->
+          <div style="background: #111113; border: 1px solid #28282c; border-radius: 6px; padding: 16px;">
+            <div style="color: var(--text-primary); font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.08em;">
+              2. Vehicle Authorization
+            </div>
+            <p style="font-size: 0.76rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">
+              Once your partner account is registered above, generate your sign-in link to authorize your Model 3:
+            </p>
+
             <div class="field">
               <label class="field-label">Redirect URI (Configured in Tesla Developer App)</label>
               <input type="text" id="input-fleet-redirect-uri" class="field-input" value="https://auth.tesla.com/void/callback">
-              <div class="field-hint">Must match the Redirect URI in your Tesla Developer App settings.</div>
             </div>
-            <div class="field">
-              <label class="field-label">Region</label>
-              <select id="input-fleet-region" class="field-input" style="height: 42px;">
-                <option value="na" selected>North America & Asia-Pacific (fleet-api.prd.na)</option>
-                <option value="eu">Europe & Middle East (fleet-api.prd.eu)</option>
-              </select>
+
+            <div style="margin-top: 10px; margin-bottom: 14px;">
+              <button class="btn btn-solid" onclick="startFleetOAuth()">Generate Vehicle Sign-In Link</button>
             </div>
-          </div>
 
-          <div style="margin-top: 14px; margin-bottom: 16px;">
-            <button class="btn btn-solid" onclick="startFleetOAuth()">1. Generate Sign-In Link</button>
-          </div>
+            <div id="fleet-auth-step2" style="display: none; background: #1a1a1c; border-radius: 8px; padding: 16px; margin-top: 14px;">
+              <div class="card-label" style="margin-bottom: 8px;">Step A: Sign in on Tesla</div>
+              <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px;">
+                Click below to grant charging and vehicle data access to your Model 3:
+              </p>
+              <a id="fleet-oauth-link" href="#" target="_blank" class="btn btn-solid" style="margin-bottom: 18px;">Open Tesla Authorization Page</a>
 
-          <div id="fleet-auth-step2" style="display: none; background: #1a1a1c; border-radius: 8px; padding: 18px; margin-top: 16px;">
-            <div class="card-label" style="margin-bottom: 8px;">Step 1: Sign in with your Tesla Account</div>
-            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px;">
-              Click below to grant charging and vehicle data access to your Model 3:
-            </p>
-            <a id="fleet-oauth-link" href="#" target="_blank" class="btn btn-solid" style="margin-bottom: 18px;">Open Tesla Authorization Page</a>
-
-            <div class="card-label" style="margin-bottom: 8px;">Step 2: Submit Callback URL</div>
-            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px;">
-              After signing in, your browser will reach the redirect page. Copy the entire URL from the browser's address bar (containing <code>code=...</code>) and paste it below:
-            </p>
-            <div class="field">
-              <input type="text" id="input-fleet-code" class="field-input" placeholder="https://auth.tesla.com/void/callback?code=NA_...">
-            </div>
-            <button class="btn btn-solid" onclick="completeFleetOAuth()">2. Exchange for Bearer Access Token</button>
-
-            <!-- Token Display and Diagnostic Feedback Box -->
-            <div id="token-display-box" style="display: none; margin-top: 20px; padding: 16px; background: #121214; border: 1px solid var(--card-border); border-radius: 8px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <span class="card-label">Generated Bearer Access Token</span>
-                <button class="btn btn-subtle" style="padding: 4px 10px; font-size: 0.68rem;" onclick="copyToken()">Copy Token</button>
-              </div>
+              <div class="card-label" style="margin-bottom: 8px;">Step B: Paste Redirect URL</div>
+              <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px;">
+                After signing in, your browser will reach the redirect page. Copy the entire URL from the browser's address bar (containing <code>code=...</code>) and paste it below:
+              </p>
               <div class="field">
-                <input type="text" id="token-display-val" class="field-input" readonly style="font-family: monospace; font-size: 0.75rem; color: #86efac;">
+                <input type="text" id="input-fleet-code" class="field-input" placeholder="https://auth.tesla.com/void/callback?code=NA_...">
               </div>
-              <div id="fleet-diag-log" class="terminal" style="height: 140px; margin-top: 12px; font-size: 0.75rem;"></div>
+              <button class="btn btn-solid" onclick="completeFleetOAuth()">Exchange Code & Connect Model 3</button>
+
+              <div id="token-display-box" style="display: none; margin-top: 16px; padding: 14px; background: #121214; border: 1px solid var(--card-border); border-radius: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <span class="card-label">Bearer Token Active</span>
+                  <button class="btn btn-subtle" style="padding: 4px 10px; font-size: 0.68rem;" onclick="copyToken()">Copy Token</button>
+                </div>
+                <div class="field">
+                  <input type="text" id="token-display-val" class="field-input" readonly style="font-family: monospace; font-size: 0.72rem; color: #86efac;">
+                </div>
+                <div id="fleet-diag-log" class="terminal" style="height: 120px; margin-top: 10px; font-size: 0.72rem;"></div>
+              </div>
             </div>
           </div>
-
-          <details id="advanced-token-details" style="margin-top: 20px; font-size: 0.75rem; color: var(--text-muted);">
-            <summary style="cursor: pointer; padding: 4px 0; font-weight: 600; color: var(--text-secondary);">Direct Bearer Token Access</summary>
-            <div style="margin-top: 12px; padding: 16px; background: #151518; border-radius: 8px; border: 1px solid var(--card-border);">
-              <div class="field">
-                <label class="field-label">Bearer Access Token</label>
-                <input type="password" id="input-fleet-token" class="field-input" placeholder="eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...">
-                <div class="field-hint">Paste your Bearer token here to connect or authenticate directly.</div>
-              </div>
-              <div style="display: flex; gap: 10px; margin-top: 12px;">
-                <button class="btn btn-solid" onclick="saveDirectFleetToken()">Authenticate with Bearer Token</button>
-              </div>
-              <div id="direct-token-log" class="terminal" style="height: 140px; margin-top: 12px; font-size: 0.75rem; display: none;"></div>
-            </div>
-          </details>
         </div>
       </div>
     </div>
@@ -1317,6 +1336,60 @@
 
   let fleetOAuth = { clientId: '', clientSecret: '', redirectUri: '', region: 'na' };
 
+  async function loadAndCopyPublicKey() {
+    try {
+      showBanner('Retrieving EC public key...');
+      const res = await fetch('/api/fleet/public-key');
+      const data = await res.json();
+      if (data.success && data.public_key) {
+        await navigator.clipboard.writeText(data.public_key);
+        showBanner('Public Key copied to clipboard! Paste it into fleetkey.cc');
+        alert('Public Key copied to clipboard!\n\nNext step:\n1. Open https://fleetkey.cc\n2. Paste your public key\n3. Copy your assigned subdomain (e.g. abc123.fleetkey.net)\n4. Paste into Registered Domain below.');
+      } else {
+        showBanner(data.error || 'Could not retrieve public key');
+      }
+    } catch (e) {
+      showBanner('Error: ' + e);
+    }
+  }
+
+  async function registerPartnerAccount() {
+    const clientId = document.getElementById('input-fleet-client-id').value.trim();
+    const clientSecret = document.getElementById('input-fleet-client-secret').value.trim();
+    const domain = document.getElementById('input-fleet-domain').value.trim();
+    const region = document.getElementById('input-fleet-region').value;
+    const logEl = document.getElementById('partner-reg-log');
+
+    if (!clientId || !clientSecret || !domain) {
+      alert('Please enter Client ID, Client Secret, and Registered Domain');
+      return;
+    }
+
+    logEl.style.display = 'block';
+    logEl.textContent = 'Requesting partner registration with Tesla Fleet API...\nContacting Tesla servers...\n';
+    showBanner('Registering developer account with Tesla...');
+
+    try {
+      const res = await fetch('/api/fleet/register-partner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, domain, region })
+      });
+      const data = await res.json();
+      logEl.textContent = data.log || JSON.stringify(data, null, 2);
+
+      if (data.success) {
+        showBanner('Partner Account registered successfully with Tesla!');
+        alert('Partner account registered successfully!\n\nYou can now proceed to Section 2 below: Generate Vehicle Sign-In Link.');
+      } else {
+        showBanner(data.error || 'Registration failed');
+      }
+    } catch (e) {
+      logEl.textContent += '\nNetwork error: ' + e;
+      showBanner('Error: ' + e);
+    }
+  }
+
   async function startFleetOAuth() {
     const clientId = document.getElementById('input-fleet-client-id').value.trim();
     const clientSecret = document.getElementById('input-fleet-client-secret').value.trim();
@@ -1452,6 +1525,12 @@
       }
       if (data.email) {
         document.getElementById('input-tesla-email').value = data.email;
+      }
+      if (data.client_id && document.getElementById('input-fleet-client-id')) {
+        document.getElementById('input-fleet-client-id').value = data.client_id;
+      }
+      if (data.domain && document.getElementById('input-fleet-domain')) {
+        document.getElementById('input-fleet-domain').value = data.domain;
       }
     } catch (e) {
       console.error(e);
