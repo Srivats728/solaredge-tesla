@@ -1,79 +1,66 @@
-# SolarEdge & Tesla Solar Optimizer Configuration
+# SolarEdge & Tesla Solar Charging Optimizer
+# Ultra-minimalist autonomous solar self-consumption system
 
 solaredge:
-  # IP address of the SolarEdge Inverter
   host: "192.168.40.169"
-  # SolarEdge Modbus TCP port (default is 1502)
   port: 1502
-  # Modbus Unit ID (typically 1)
   unit_id: 1
-  # Modbus timeout in seconds
   timeout: 5
 
-tesla:
-  # Tesla account email (used by TeslaPy for authentication)
-  email: "your-tesla-email@example.com"
-  # Optional: If you have multiple Teslas on your account, specify the VIN or Vehicle Name
-  # If left empty or null, the first vehicle on the account will be used.
-  vin: null
+vehicle:
+  # Provider options:
+  # - tessie: Recommended for personal Teslas. Single API key from dash.tessie.com (no developer setup needed)
+  # - homeassistant: Local LAN connection to Home Assistant instance
+  # - fleet: Official Tesla Developer Fleet API
+  # - simulator: Local mock Model 3 for instant testing without a real vehicle
+  provider: "tessie"
+
+  tessie:
+    api_key: ""
+    vin: ""
+
+  homeassistant:
+    url: "http://homeassistant.local:8123"
+    token: ""
+    soc_entity: "sensor.battery_sensor"
+    amps_entity: "number.charging_amps"
+    switch_entity: "switch.charger"
+
+  fleet:
+    client_id: ""
+    client_secret: ""
+    access_token: ""
+    refresh_token: ""
+    region: "na"
 
 charging:
-  # Level 1 voltage (typically 120V in North America)
   voltage: 120
-
-  # Allowed charging current range on Level 1 (NEMA 5-15)
-  # Note: Tesla Model 3 firmware enforces a minimum of 5 Amps. Max on 15A outlet is 12A.
   min_amps: 5
   max_amps: 12
 
-  # Minimum solar generation (Watts) required to initiate/consider charging.
-  # As requested, default is 1700W (1.7 kW).
+  # Minimum solar generation (Watts) required to initiate/consider charging
   start_threshold_watts: 1700
 
-  # Estimated baseline household consumption (Watts) when car is not charging.
-  # Generation minus baseline = power allocated to car.
-  # Example: If generation is 1800W and baseline is 600W, available for car is 1200W -> 10A @ 120V.
+  # Estimated baseline household consumption (Watts) subtracted from solar to determine car surplus
   baseline_house_watts: 600
 
-  # Generation threshold below which the car should stop charging.
-  # Typically set to: baseline_house_watts + (min_amps * voltage) - buffer
-  # For 600W baseline + 600W (5A*120V) = 1200W. If generation drops below this, grid power is used.
+  # Power threshold below which the car stops charging
   stop_threshold_watts: 1100
 
-  # Hysteresis & Debounce settings to prevent toggling on brief clouds or spikes:
-  # Seconds solar must remain above start_threshold_watts before waking car and starting charge
+  # Anti-cycling & debounce timers (seconds)
   start_delay_seconds: 120
-
-  # Seconds solar must remain below stop_threshold_watts before stopping charge
   stop_delay_seconds: 180
-
-  # Minimum interval (seconds) between changing charging current (amps)
   amp_change_cooldown_seconds: 45
-
-  # Loop evaluation interval in seconds
   poll_interval_seconds: 30
 
 whatsapp:
-  # Set to true to enable WhatsApp notifications
   enabled: false
-
-  # Provider: 'callmebot' (free, recommended for DIY) or 'twilio'
   provider: "callmebot"
 
   callmebot:
-    # Phone number with international country code (e.g. +1234567890 or 1234567890)
     phone: "+1xxxxxxxxxx"
-    # CallMeBot API key obtained from WhatsApp bot
     apikey: "YOUR_CALLMEBOT_API_KEY"
 
-  twilio:
-    account_sid: "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-    auth_token: "your_auth_token"
-    from_number: "whatsapp:+14155238886"
-    to_number: "whatsapp:+1xxxxxxxxxx"
-
 logging:
-  # Logging level: DEBUG, INFO, WARNING, ERROR
   level: "INFO"
-  # Log file path (leave empty for stdout only)
   file: "solaredge_tesla.log"

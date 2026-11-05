@@ -3,44 +3,37 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TESLA // ENERGY OPTIMIZER</title>
+  <title>SOLAREDGE // TESLA OPTIMIZER</title>
   <style>
-    @font-face {
-      font-family: 'Gotham';
-      src: local('Gotham'), local('Gotham-Book'), local('Gotham Book'), local('-apple-system');
-    }
     :root {
       --bg: #000000;
-      --card-bg: #121212;
-      --card-border: #242424;
-      --card-hover: #181818;
+      --card-bg: #111111;
+      --card-border: #222222;
+      --card-hover: #161616;
       --text-primary: #ffffff;
       --text-secondary: #8e8e93;
-      --text-muted: #545458;
-      --accent: #ffffff;
-      --accent-red: #e82127;
+      --text-muted: #555555;
       --accent-green: #30d158;
-      --pill-bg: #1c1c1e;
-      --pill-border: #2c2c2e;
-      --input-bg: #161618;
+      --accent-blue: #3e6ae1;
+      --accent-red: #ff453a;
+      --input-bg: #181818;
       --input-border: #2c2c2e;
     }
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: "Gotham SSm A", "Gotham SSm B", "Gotham", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
     }
     body {
       background-color: var(--bg);
       color: var(--text-primary);
       min-height: 100vh;
-      padding: 24px 20px;
+      padding: 32px 24px;
     }
     .container {
-      max-width: 1080px;
+      max-width: 1120px;
       margin: 0 auto;
     }
 
@@ -51,1759 +44,826 @@
       align-items: center;
       padding-bottom: 24px;
       border-bottom: 1px solid var(--card-border);
-      margin-bottom: 28px;
-    }
-    .brand-wrap {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
+      margin-bottom: 32px;
     }
     .brand-title {
-      font-size: 1.15rem;
-      letter-spacing: 0.22em;
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
       text-transform: uppercase;
-      font-weight: 500;
       color: var(--text-primary);
     }
     .brand-subtitle {
-      font-size: 0.72rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
       color: var(--text-secondary);
+      text-transform: uppercase;
+      margin-top: 4px;
     }
-    .header-actions {
-      display: flex;
+    .status-badge {
+      display: inline-flex;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: #181818;
+      border: 1px solid var(--card-border);
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
     }
 
-    /* Tesla Segmented Control / Tabs */
-    .segmented-control {
-      display: inline-flex;
-      background: var(--pill-bg);
-      border: 1px solid var(--pill-border);
-      border-radius: 24px;
-      padding: 3px;
-      margin-bottom: 28px;
-      gap: 2px;
-      flex-wrap: wrap;
+    /* Mode Selector */
+    .mode-container {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 32px;
     }
-    .segment-btn {
+    .mode-group {
+      display: inline-flex;
+      background: #141414;
+      border: 1px solid var(--card-border);
+      border-radius: 9999px;
+      padding: 4px;
+      gap: 4px;
+    }
+    .mode-btn {
       background: transparent;
       border: none;
       color: var(--text-secondary);
-      padding: 8px 18px;
-      border-radius: 20px;
-      font-size: 0.75rem;
+      padding: 10px 24px;
+      font-size: 0.8rem;
+      font-weight: 600;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      font-weight: 500;
+      border-radius: 9999px;
       cursor: pointer;
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all 0.2s ease;
     }
-    .segment-btn:hover {
+    .mode-btn:hover {
       color: var(--text-primary);
     }
-    .segment-btn.active {
+    .mode-btn.active {
       background: var(--text-primary);
       color: var(--bg);
-      font-weight: 600;
     }
 
-    /* Content Views */
-    .view-pane {
-      display: none;
+    /* Telemetry Grid */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
     }
-    .view-pane.active {
-      display: block;
-    }
-
-    /* Hero / Mode Selector Bar */
-    .hero-bar {
+    .telemetry-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      border-radius: 12px;
-      padding: 20px 24px;
-      margin-bottom: 24px;
+      border-radius: 8px;
+      padding: 20px;
       display: flex;
+      flex-direction: column;
       justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 16px;
+      min-height: 120px;
+      transition: border-color 0.2s ease;
     }
-    .hero-meta .label {
+    .telemetry-card:hover {
+      border-color: #333333;
+    }
+    .card-label {
       font-size: 0.7rem;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--text-secondary);
-      margin-bottom: 4px;
-    }
-    .hero-meta .value {
-      font-size: 0.95rem;
-      font-weight: 500;
-      color: var(--text-primary);
-    }
-    .mode-group {
-      display: flex;
-      gap: 8px;
-    }
-
-    /* Tesla Buttons */
-    .btn {
-      padding: 9px 18px;
-      border-radius: 20px;
-      font-size: 0.75rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
       font-weight: 600;
-      border: 1px solid transparent;
-      cursor: pointer;
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      text-decoration: none;
+      margin-bottom: 8px;
     }
-    .btn-solid {
-      background: var(--text-primary);
-      color: var(--bg);
-    }
-    .btn-solid:hover {
-      background: #e5e5e7;
-    }
-    .btn-subtle {
-      background: var(--pill-bg);
-      border-color: var(--pill-border);
+    .card-value {
+      font-size: 2rem;
+      font-weight: 700;
       color: var(--text-primary);
-    }
-    .btn-subtle:hover {
-      border-color: #48484a;
-      background: #242426;
-    }
-    .btn-danger {
-      background: transparent;
-      border-color: #3a1c1d;
-      color: #ff453a;
-    }
-    .btn-danger:hover {
-      background: #3a1c1d;
-      color: #ffffff;
-    }
-    .btn-active-state {
-      background: var(--text-primary) !important;
-      color: var(--bg) !important;
-      border-color: var(--text-primary) !important;
-    }
-
-    /* Grid & Cards */
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 20px;
-      margin-bottom: 24px;
-    }
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-    .card-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-    .card-label {
-      font-size: 0.72rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--text-secondary);
-      font-weight: 600;
-    }
-    .status-tag {
-      font-size: 0.68rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      padding: 3px 9px;
-      border-radius: 12px;
-      border: 1px solid var(--card-border);
-      color: var(--text-secondary);
-      background: #181818;
-    }
-    .status-tag.active {
-      color: #ffffff;
-      border-color: #555555;
-      background: #242424;
-    }
-
-    /* Hero Metric Numbers */
-    .metric-hero {
-      margin-bottom: 20px;
-    }
-    .metric-num {
-      font-size: 3.2rem;
-      font-weight: 300;
-      letter-spacing: -0.03em;
-      line-height: 1;
-      color: var(--text-primary);
+      line-height: 1.1;
       margin-bottom: 6px;
     }
-    .metric-sub {
-      font-size: 0.8rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+    .card-unit {
+      font-size: 1rem;
       color: var(--text-secondary);
-    }
-
-    /* Minimalist Data Rows */
-    .data-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
-      padding-top: 16px;
-    }
-    .data-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.82rem;
-    }
-    .data-row .k {
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      font-size: 0.72rem;
-    }
-    .data-row .v {
-      color: var(--text-primary);
       font-weight: 500;
     }
-
-    /* Minimal Visual Vehicle Representation */
-    .vehicle-graphic {
-      width: 100%;
-      height: 70px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 12px;
-      opacity: 0.85;
+    .card-subtext {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
     }
 
-    /* Energy Progress Bar */
-    .energy-bar-wrap {
-      background: #1c1c1e;
-      border-radius: 4px;
-      height: 6px;
+    /* Battery Bar */
+    .battery-track {
       width: 100%;
-      margin: 12px 0;
+      height: 6px;
+      background: #222222;
+      border-radius: 3px;
+      margin: 8px 0;
       overflow: hidden;
     }
-    .energy-bar-fill {
-      background: var(--text-primary);
+    .battery-fill {
       height: 100%;
+      background: var(--accent-green);
       width: 0%;
       transition: width 0.4s ease;
     }
 
-    /* Forms */
-    .form-section-title {
-      font-size: 0.72rem;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--text-secondary);
-      margin: 20px 0 12px 0;
-      padding-bottom: 6px;
-      border-bottom: 1px solid var(--card-border);
-    }
-    .form-row {
+    /* Setup & Control Section */
+    .controls-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 16px;
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 860px) {
+      .controls-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .panel-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 24px;
+    }
+    .panel-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+      margin-bottom: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .form-group {
       margin-bottom: 16px;
     }
-    @media (max-width: 600px) {
-      .form-row { grid-template-columns: 1fr; }
-    }
-    .field {
-      margin-bottom: 14px;
-    }
-    .field-label {
+    .form-label {
       display: block;
       font-size: 0.7rem;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--text-secondary);
+      font-weight: 600;
       margin-bottom: 6px;
     }
-    .field-input {
+    .form-input, .form-select {
       width: 100%;
       background: var(--input-bg);
       border: 1px solid var(--input-border);
-      border-radius: 8px;
-      padding: 10px 14px;
+      border-radius: 6px;
       color: var(--text-primary);
-      font-size: 0.9rem;
-      transition: border-color 0.2s;
-    }
-    .field-input:focus {
+      padding: 10px 12px;
+      font-size: 0.85rem;
       outline: none;
-      border-color: #636366;
+      transition: border-color 0.2s ease;
     }
-    .field-hint {
-      font-size: 0.72rem;
+    .form-input:focus, .form-select:focus {
+      border-color: #555555;
+    }
+    .form-help {
+      font-size: 0.7rem;
       color: var(--text-muted);
       margin-top: 4px;
+      line-height: 1.4;
+    }
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .btn {
+      padding: 10px 18px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+    }
+    .btn-primary {
+      background: var(--text-primary);
+      color: var(--bg);
+    }
+    .btn-primary:hover {
+      background: #dddddd;
+    }
+    .btn-secondary {
+      background: #1c1c1e;
+      color: var(--text-primary);
+      border: 1px solid var(--card-border);
+    }
+    .btn-secondary:hover {
+      background: #28282a;
     }
 
-    /* Terminal & Logs */
-    .terminal {
-      background: #09090a;
+    /* Inline Test Console */
+    .console-box {
+      margin-top: 16px;
+      background: #080808;
+      border: 1px solid #1c1c1e;
+      border-radius: 6px;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.72rem;
+      color: #999999;
+      white-space: pre-wrap;
+      max-height: 160px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    /* System Log Feed */
+    .log-panel {
+      background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 8px;
+      padding: 24px;
+    }
+    .log-box {
+      background: #080808;
+      border: 1px solid #1c1c1e;
+      border-radius: 6px;
       padding: 16px;
-      font-family: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
-      font-size: 0.8rem;
-      color: #d1d1d6;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.75rem;
       line-height: 1.5;
-      height: 420px;
+      color: #aaaaaa;
+      height: 220px;
       overflow-y: auto;
       white-space: pre-wrap;
     }
 
-    /* Notifications & Alert Banner */
-    .notification-banner {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-left: 3px solid var(--text-primary);
-      border-radius: 8px;
-      padding: 12px 18px;
-      font-size: 0.82rem;
-      color: var(--text-primary);
-      margin-bottom: 20px;
-      display: none;
-    }
-
-    /* FIRST TIME SETUP MODAL */
-    .modal-overlay {
+    /* Notification toast */
+    .toast {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.88);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      z-index: 1000;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    .modal-card {
-      background: #141414;
-      border: 1px solid #2a2a2a;
-      border-radius: 16px;
-      width: 100%;
-      max-width: 640px;
-      max-height: 90vh;
-      overflow-y: auto;
-      padding: 32px;
-      box-shadow: 0 24px 48px rgba(0,0,0,0.8);
-    }
-    .wizard-steps {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 28px;
-      border-bottom: 1px solid #222222;
-      padding-bottom: 16px;
-    }
-    .wizard-step-indicator {
-      font-size: 0.68rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--text-muted);
+      bottom: 24px;
+      right: 24px;
+      background: #1c1c1e;
+      border: 1px solid #333333;
+      color: var(--text-primary);
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-size: 0.8rem;
       font-weight: 500;
+      letter-spacing: 0.04em;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.8);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      z-index: 1000;
     }
-    .wizard-step-indicator.active {
-      color: var(--text-primary);
-      font-weight: 600;
-    }
-    .wizard-pane {
-      display: none;
-    }
-    .wizard-pane.active {
-      display: block;
-    }
-    .wizard-title {
-      font-size: 1.25rem;
-      font-weight: 400;
-      letter-spacing: -0.01em;
-      color: var(--text-primary);
-      margin-bottom: 8px;
-    }
-    .wizard-desc {
-      font-size: 0.82rem;
-      color: var(--text-secondary);
-      line-height: 1.5;
-      margin-bottom: 24px;
-    }
-    .wizard-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 32px;
-      padding-top: 20px;
-      border-top: 1px solid #222222;
+    .toast.show {
+      opacity: 1;
     }
   </style>
 </head>
 <body>
-
-<div class="container">
-  <!-- Minimalist Tesla Header -->
-  <header>
-    <div class="brand-wrap">
-      <div class="brand-title">Tesla // Energy</div>
-      <div class="brand-subtitle">Level 1 Autonomous Solar Charging System</div>
-    </div>
-    <div class="header-actions">
-      <button class="btn btn-subtle" onclick="openSetupWizard(1)">Setup Wizard</button>
-      <span id="daemon-tag" class="status-tag active">System Online</span>
-    </div>
-  </header>
-
-  <!-- Segmented Control Navigation -->
-  <div class="segmented-control">
-    <button class="segment-btn active" onclick="switchView('dashboard')">Energy Flow</button>
-    <button class="segment-btn" onclick="switchView('settings')">Configuration</button>
-    <button class="segment-btn" onclick="switchView('tesla')">Tesla Access</button>
-    <button class="segment-btn" onclick="switchView('modbus')">Diagnostics</button>
-    <button class="segment-btn" onclick="switchView('logs')">System Logs</button>
-  </div>
-
-  <div id="notice-box" class="notification-banner"></div>
-
-  <!-- VIEW 1: DASHBOARD / ENERGY FLOW -->
-  <div id="view-dashboard" class="view-pane active">
-    <!-- Hero Mode Controls -->
-    <div class="hero-bar">
-      <div class="hero-meta">
-        <div class="label">Operating Mode</div>
-        <div class="value" id="current-mode-label">Solar Self-Consumption (Auto)</div>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div>
+        <div class="brand-title">SolarEdge // Tesla</div>
+        <div class="brand-subtitle">Autonomous Solar Self-Consumption Optimizer</div>
       </div>
+      <div class="status-badge" id="system-badge">
+        <div class="status-dot" id="system-dot"></div>
+        <span id="system-state-text">SYSTEM ONLINE</span>
+      </div>
+    </header>
+
+    <!-- Mode Selector -->
+    <div class="mode-container">
       <div class="mode-group">
-        <button class="btn btn-subtle" id="mode-auto" onclick="setMode('auto')">Auto Solar</button>
-        <button class="btn btn-subtle" id="mode-force" onclick="setMode('force')">Force 12A</button>
-        <button class="btn btn-danger" id="mode-off" onclick="setMode('off')">Stop</button>
+        <button class="mode-btn active" id="btn-mode-auto" onclick="setMode('auto')">AUTO (SOLAR)</button>
+        <button class="mode-btn" id="btn-mode-force" onclick="setMode('force')">FORCE 12A</button>
+        <button class="mode-btn" id="btn-mode-off" onclick="setMode('off')">STOP</button>
       </div>
     </div>
 
-    <!-- Telemetry Cards -->
-    <div class="grid">
-      <!-- Solar Production Card -->
-      <div class="card">
-        <div>
-          <div class="card-head">
-            <span class="card-label">Solar Generation</span>
-            <span id="se-badge" class="status-tag">Inverter Standby</span>
-          </div>
-          <div class="metric-hero">
-            <div class="metric-num" id="metric-solar-w">--</div>
-            <div class="metric-sub" id="metric-solar-kw">0.00 kW Generated</div>
-          </div>
-          <div class="energy-bar-wrap">
-            <div class="energy-bar-fill" id="solar-progress"></div>
-          </div>
-        </div>
-
-        <div class="data-list">
-          <div class="data-row">
-            <span class="k">Inverter State</span>
-            <span class="v" id="se-status-txt">--</span>
-          </div>
-          <div class="data-row">
-            <span class="k">LAN Address</span>
-            <span class="v" id="se-endpoint">192.168.40.169:1502</span>
-          </div>
-          <div class="data-row">
-            <span class="k">Start Threshold</span>
-            <span class="v" id="se-threshold-txt">1,700 W</span>
-          </div>
-          <div class="data-row">
-            <span class="k">House Baseline</span>
-            <span class="v" id="se-baseline-txt">600 W</span>
-          </div>
-        </div>
+    <!-- Live Telemetry Grid -->
+    <div class="telemetry-grid">
+      <!-- Solar Production -->
+      <div class="telemetry-card">
+        <div class="card-label">Solar Generation</div>
+        <div class="card-value"><span id="val-solar-watts">0</span> <span class="card-unit">W</span></div>
+        <div class="card-subtext" id="sub-solar-status">Inverter Standby</div>
       </div>
 
-      <!-- Tesla Vehicle Card -->
-      <div class="card">
-        <div>
-          <div class="card-head">
-            <span class="card-label">Model 3 Status</span>
-            <span id="tesla-badge" class="status-tag">Standby</span>
-          </div>
-
-          <!-- Clean Tesla Silhouette SVG -->
-          <div class="vehicle-graphic">
-            <svg viewBox="0 0 280 60" width="220" height="48" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M 20 42 C 28 42, 38 42, 45 42 C 48 30, 68 30, 72 42 C 110 42, 160 42, 180 42 C 184 30, 204 30, 208 42 C 225 42, 245 42, 255 40 C 258 35, 252 28, 235 24 C 205 18, 175 14, 150 14 C 115 14, 85 18, 65 24 C 45 28, 25 35, 20 42 Z"/>
-              <circle cx="58" cy="42" r="9" stroke="#ffffff" stroke-width="1.8"/>
-              <circle cx="194" cy="42" r="9" stroke="#ffffff" stroke-width="1.8"/>
-              <path d="M 95 16 L 155 16 C 172 16, 190 22, 195 24 L 85 24 C 88 20, 91 17, 95 16 Z" stroke="#666666" stroke-width="1.2"/>
-            </svg>
-          </div>
-
-          <div class="metric-hero">
-            <div class="metric-num" id="metric-battery">-- %</div>
-            <div class="metric-sub" id="metric-charge-state">Vehicle State: Standby</div>
-          </div>
-        </div>
-
-        <div class="data-list">
-          <div class="data-row">
-            <span class="k">Connector State</span>
-            <span class="v" id="tesla-plug-state">--</span>
-          </div>
-          <div class="data-row">
-            <span class="k">Charging Current</span>
-            <span class="v" id="tesla-amps-val">-- A</span>
-          </div>
-          <div class="data-row">
-            <span class="k">Charger Voltage</span>
-            <span class="v" id="tesla-volts-val">120 V</span>
-          </div>
-          <div class="data-row">
-            <span class="k">Charge Limit</span>
-            <span class="v" id="tesla-soc-val">-- %</span>
-          </div>
-        </div>
+      <!-- House Baseline -->
+      <div class="telemetry-card">
+        <div class="card-label">House Baseline</div>
+        <div class="card-value"><span id="val-baseline-watts">600</span> <span class="card-unit">W</span></div>
+        <div class="card-subtext">Reserved for Home Appliances</div>
       </div>
 
-      <!-- Power Allocation / Control Engine -->
-      <div class="card">
-        <div>
-          <div class="card-head">
-            <span class="card-label">Power Distribution</span>
-            <span id="opt-badge" class="status-tag active">Optimizing</span>
-          </div>
-          <div class="metric-hero">
-            <div class="metric-num" id="metric-allocated-amps">-- A</div>
-            <div class="metric-sub" id="metric-allocated-w">0 W Allocated to Vehicle</div>
-          </div>
-        </div>
+      <!-- Net Solar Surplus -->
+      <div class="telemetry-card">
+        <div class="card-label">Net Solar Surplus</div>
+        <div class="card-value"><span id="val-surplus-watts">0</span> <span class="card-unit">W</span></div>
+        <div class="card-subtext" id="sub-surplus-kw">0.00 kW Available</div>
+      </div>
 
-        <div class="data-list">
-          <div class="data-row">
-            <span class="k">Net Solar Surplus</span>
-            <span class="v" id="metric-net-surplus">-- W</span>
-          </div>
-          <div class="data-row">
-            <span class="k">Grid Import Defense</span>
-            <span class="v" style="color: #ffffff;">Active</span>
-          </div>
-          <div class="data-row">
-            <span class="k">Cloud Filter Timer</span>
-            <span class="v" id="metric-timer-state">Inactive</span>
-          </div>
-          <div class="data-row">
-            <span class="k">Modulation Range</span>
-            <span class="v">5A - 12A (Level 1)</span>
-          </div>
+      <!-- Vehicle Charging Rate -->
+      <div class="telemetry-card">
+        <div class="card-label">Vehicle Charging Rate</div>
+        <div class="card-value"><span id="val-charging-amps">0</span> <span class="card-unit">A</span></div>
+        <div class="card-subtext" id="sub-charging-watts">120V Level 1 (0 W)</div>
+      </div>
+
+      <!-- Vehicle Battery -->
+      <div class="telemetry-card">
+        <div class="card-label">Vehicle Battery</div>
+        <div class="card-value"><span id="val-battery-pct">--</span><span class="card-unit">%</span></div>
+        <div class="battery-track">
+          <div class="battery-fill" id="val-battery-bar"></div>
         </div>
+        <div class="card-subtext" id="sub-vehicle-status">Disconnected</div>
       </div>
     </div>
-  </div>
 
-  <!-- VIEW 2: SETTINGS -->
-  <div id="view-settings" class="view-pane">
-    <div class="card" style="max-width: 720px; margin: 0 auto;">
-      <div class="card-head">
-        <span class="card-label">System Configuration</span>
+    <!-- Configuration Panels -->
+    <div class="controls-grid">
+      <!-- Vehicle Setup Panel -->
+      <div class="panel-card">
+        <div class="panel-title">
+          <span>Vehicle Integration</span>
+          <span style="font-size:0.7rem; color:var(--text-secondary);" id="provider-badge">TESSIE</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Connection Method</label>
+          <select class="form-select" id="cfg-provider" onchange="onProviderChange()">
+            <option value="tessie">Tessie API (Recommended - 1 Key Setup)</option>
+            <option value="homeassistant">Home Assistant (Local LAN)</option>
+            <option value="fleet">Tesla Fleet API (Developer Account)</option>
+            <option value="simulator">Built-in Simulator (Local Testing)</option>
+          </select>
+        </div>
+
+        <!-- Tessie Form -->
+        <div id="form-tessie">
+          <div class="form-group">
+            <label class="form-label">Tessie API Key</label>
+            <input type="password" class="form-input" id="cfg-tessie-key" placeholder="Enter API key from dash.tessie.com">
+            <div class="form-help">
+              Recommended for personal Teslas. Obtain your key at <strong>dash.tessie.com/settings/api</strong>. Zero developer account or domain registration required.
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Vehicle VIN (Optional)</label>
+            <input type="text" class="form-input" id="cfg-tessie-vin" placeholder="Leave empty for auto-discovery">
+          </div>
+        </div>
+
+        <!-- Home Assistant Form -->
+        <div id="form-ha" style="display:none;">
+          <div class="form-group">
+            <label class="form-label">Home Assistant URL</label>
+            <input type="text" class="form-input" id="cfg-ha-url" placeholder="http://192.168.40.xxx:8123">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Long-Lived Access Token</label>
+            <input type="password" class="form-input" id="cfg-ha-token" placeholder="Bearer token">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Charger Switch Entity</label>
+            <input type="text" class="form-input" id="cfg-ha-switch" value="switch.charger">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Charging Amps Entity</label>
+            <input type="text" class="form-input" id="cfg-ha-amps" value="number.charging_amps">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Battery Level Entity</label>
+            <input type="text" class="form-input" id="cfg-ha-soc" value="sensor.battery_sensor">
+          </div>
+        </div>
+
+        <!-- Fleet Form -->
+        <div id="form-fleet" style="display:none;">
+          <div class="form-group">
+            <label class="form-label">Client ID</label>
+            <input type="text" class="form-input" id="cfg-fleet-id" placeholder="Tesla developer client ID">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Client Secret</label>
+            <input type="password" class="form-input" id="cfg-fleet-secret" placeholder="Tesla developer client secret">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Refresh Token</label>
+            <input type="password" class="form-input" id="cfg-fleet-refresh" placeholder="OAuth refresh token">
+          </div>
+        </div>
+
+        <!-- Simulator Form -->
+        <div id="form-simulator" style="display:none;">
+          <div class="form-help" style="padding: 12px; background: #161616; border-radius: 6px; border: 1px solid #222;">
+            Local Simulator active. Simulates a Tesla Model 3 connected to Level 1 charging for live testing of solar logic and Modbus telemetry.
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="saveVehicleConfig()">Save Vehicle</button>
+          <button class="btn btn-secondary" onclick="testVehicleConnection()">Test Connection</button>
+        </div>
+
+        <div class="console-box" id="vehicle-console"></div>
       </div>
 
-      <form id="cfg-form" onsubmit="saveConfiguration(event)">
-        <div class="form-section-title">Inverter Communication</div>
-        <div class="form-row">
-          <div class="field">
-            <label class="field-label">SolarEdge LAN IP</label>
-            <input type="text" id="set-se-host" class="field-input" value="192.168.40.169" required>
+      <!-- Inverter & Solar Thresholds Panel -->
+      <div class="panel-card">
+        <div class="panel-title">
+          <span>Inverter & Solar Settings</span>
+          <span style="font-size:0.7rem; color:var(--text-secondary);" id="inverter-badge">MODBUS TCP</span>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:12px;">
+          <div class="form-group">
+            <label class="form-label">SolarEdge Inverter IP</label>
+            <input type="text" class="form-input" id="cfg-se-host" value="192.168.40.169">
           </div>
-          <div class="field">
-            <label class="field-label">Modbus TCP Port</label>
-            <input type="number" id="set-se-port" class="field-input" value="1502" required>
+          <div class="form-group">
+            <label class="form-label">Modbus Port</label>
+            <input type="number" class="form-input" id="cfg-se-port" value="1502">
           </div>
         </div>
 
-        <div class="form-section-title">Charging Modulation Parameters</div>
-        <div class="form-row">
-          <div class="field">
-            <label class="field-label">Start Solar Threshold (Watts)</label>
-            <input type="number" id="set-start-w" class="field-input" value="1700" required>
-            <div class="field-hint">Minimum panel production required to initiate charging.</div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Start (Watts)</label>
+            <input type="number" class="form-input" id="cfg-chg-start" value="1700">
+            <div class="form-help">&gt; 1.7 kW</div>
           </div>
-          <div class="field">
-            <label class="field-label">Household Baseline Consumption (Watts)</label>
-            <input type="number" id="set-base-w" class="field-input" value="600" required>
-            <div class="field-hint">Deducted from solar output before allocating current.</div>
+          <div class="form-group">
+            <label class="form-label">Stop (Watts)</label>
+            <input type="number" class="form-input" id="cfg-chg-stop" value="1100">
+            <div class="form-help">Cloud limit</div>
           </div>
-        </div>
-
-        <div class="form-row">
-          <div class="field">
-            <label class="field-label">Stop Solar Threshold (Watts)</label>
-            <input type="number" id="set-stop-w" class="field-input" value="1100" required>
-            <div class="field-hint">Charge stops if production remains below this level.</div>
-          </div>
-          <div class="field">
-            <label class="field-label">Level 1 Voltage (V)</label>
-            <input type="number" id="set-voltage" class="field-input" value="120" required>
+          <div class="form-group">
+            <label class="form-label">Baseline (Watts)</label>
+            <input type="number" class="form-input" id="cfg-chg-baseline" value="600">
+            <div class="form-help">Home load</div>
           </div>
         </div>
 
-        <div class="form-row">
-          <div class="field">
-            <label class="field-label">Minimum Current (Amps)</label>
-            <input type="number" id="set-min-amps" class="field-input" value="5" min="5" max="12" required>
-          </div>
-          <div class="field">
-            <label class="field-label">Maximum Current (Amps)</label>
-            <input type="number" id="set-max-amps" class="field-input" value="12" min="5" max="12" required>
-          </div>
+        <div class="form-help" style="margin-top: 4px;">
+          Charging formula: <strong>Amps = (Solar Watts - Baseline) / 120V</strong>, clamped between 5A (firmware min) and 12A (NEMA 5-15 continuous max).
         </div>
 
-        <div class="form-section-title">Cloud Dips & Contactor Protection</div>
-        <div class="form-row">
-          <div class="field">
-            <label class="field-label">Start Delay Timer (Seconds)</label>
-            <input type="number" id="set-start-delay" class="field-input" value="120" required>
-          </div>
-          <div class="field">
-            <label class="field-label">Stop Delay Timer (Seconds)</label>
-            <input type="number" id="set-stop-delay" class="field-input" value="180" required>
-          </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="saveInverterConfig()">Save Thresholds</button>
+          <button class="btn btn-secondary" onclick="testInverterConnection()">Test Inverter</button>
         </div>
 
-        <div class="form-section-title">WhatsApp Notifications</div>
-        <div class="field" style="margin-bottom: 12px;">
-          <label style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-primary); cursor: pointer;">
-            <input type="checkbox" id="set-wa-enabled"> Enable Notifications via CallMeBot
-          </label>
-        </div>
-        <div class="form-row">
-          <div class="field">
-            <label class="field-label">Recipient Phone Number (with Country Code)</label>
-            <input type="text" id="set-wa-phone" class="field-input" placeholder="+1234567890">
-          </div>
-          <div class="field">
-            <label class="field-label">CallMeBot API Key</label>
-            <input type="text" id="set-wa-key" class="field-input" placeholder="123456">
-          </div>
-        </div>
+        <div class="console-box" id="inverter-console"></div>
+      </div>
+    </div>
 
-        <div style="margin-top: 24px; text-align: right;">
-          <button type="submit" class="btn btn-solid">Save Configuration</button>
-        </div>
-      </form>
+    <!-- Live System Log Feed -->
+    <div class="log-panel">
+      <div class="panel-title">
+        <span>Optimizer System Logs</span>
+        <button class="btn btn-secondary" style="padding: 4px 12px; font-size: 0.68rem;" onclick="fetchLogs()">Refresh</button>
+      </div>
+      <div class="log-box" id="system-log">Loading system logs...</div>
     </div>
   </div>
 
-  <!-- VIEW 3: TESLA ACCOUNT -->
-  <div id="view-tesla" class="view-pane">
-    <div class="card" style="max-width: 720px; margin: 0 auto;">
-      <div class="card-head">
-        <span class="card-label">Tesla Vehicle Access</span>
-        <span id="tesla-auth-tag" class="status-tag">Checking...</span>
-      </div>
+  <div class="toast" id="toast-msg"></div>
 
-      <div id="tesla-auth-detail" style="margin-bottom: 24px;"></div>
+  <script>
+    let currentConfig = {};
 
-      <!-- Segmented Sub-control for Quick Connect vs TeslaPy vs Fleet API -->
-      <div class="segmented-control" style="margin-bottom: 20px;">
-        <button class="segment-btn active" id="btn-sub-quick" onclick="switchTeslaMode('quick')">Quick Connect (Refresh Token)</button>
-        <button class="segment-btn" id="btn-sub-teslapy" onclick="switchTeslaMode('teslapy')">Tesla SSO Login</button>
-        <button class="segment-btn" id="btn-sub-fleet" onclick="switchTeslaMode('fleet')">Developer Fleet API</button>
-      </div>
-
-      <!-- PANE 1: QUICK CONNECT (REFRESH TOKEN) -->
-      <div id="pane-tesla-quick">
-        <div style="background: #161618; border: 1px solid var(--card-border); border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-          <div class="card-label" style="margin-bottom: 8px;">Recommended: Connect via Tesla Refresh Token</div>
-          <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px;">
-            The easiest and most reliable method for personal Tesla vehicles. No developer account, registered domain, or public key signing needed.
-          </p>
-
-          <div style="background: #111113; border: 1px solid #222226; border-radius: 6px; padding: 14px; margin-bottom: 18px; font-size: 0.76rem; color: var(--text-secondary); line-height: 1.6;">
-            <div style="color: var(--text-primary); font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.08em;">Quick Steps</div>
-            1. Open the free, open-source <strong>Tesla Auth</strong> app on your phone (iOS / Android) or PC/Mac (or any standard Tesla token generator).<br>
-            2. Sign in with your Tesla credentials and tap <strong>Copy Refresh Token</strong>.<br>
-            3. Paste the token below and click <strong>Connect Model 3</strong>.
-          </div>
-
-          <div class="field">
-            <label class="field-label">Tesla Refresh Token</label>
-            <input type="password" id="input-quick-token" class="field-input" placeholder="Paste your Tesla refresh token here...">
-            <div class="field-hint">Your token is stored locally and securely in config.yaml (never shared or transmitted to third parties).</div>
-          </div>
-
-          <div style="margin-top: 14px;">
-            <button class="btn btn-solid" id="btn-quick-connect" onclick="connectQuickToken(false)">Connect Model 3</button>
-          </div>
-
-          <div id="quick-token-feedback" style="display: none; margin-top: 16px; padding: 14px; border-radius: 6px; font-size: 0.8rem;"></div>
-        </div>
-      </div>
-
-      <!-- PANE 2: TESLAPY SSO -->
-      <div id="pane-tesla-teslapy" style="display: none;">
-        <div class="data-list" style="margin-bottom: 24px;">
-          <div class="field">
-            <label class="field-label">Tesla Account Email</label>
-            <input type="email" id="input-tesla-email" class="field-input" placeholder="user@example.com">
-          </div>
-          <div>
-            <button class="btn btn-subtle" onclick="beginTeslaAuth()">1. Generate Tesla Authorization Link</button>
-          </div>
-        </div>
-
-        <div id="tesla-auth-flow" style="display: none; background: #161618; border: 1px solid var(--card-border); border-radius: 8px; padding: 20px; margin-top: 16px;">
-          <div class="card-label" style="margin-bottom: 8px;">Step 1: Sign in via Tesla</div>
-          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 14px;">
-            Click the link below to authenticate securely through Tesla's OAuth SSO.
-          </p>
-          <a id="tesla-link-btn" href="#" target="_blank" class="btn btn-solid" style="margin-bottom: 20px;">Open Tesla Login Page</a>
-
-          <div class="card-label" style="margin-bottom: 8px;">Step 2: Submit Callback URL</div>
-          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px;">
-            After logging in, your browser will reach a page reading "Page Not Found" (404). Copy the entire URL from your browser's address bar and paste it below.
-          </p>
-          <div class="field">
-            <input type="text" id="input-tesla-callback" class="field-input" placeholder="https://auth.tesla.com/void/callback?code=...">
-          </div>
-          <button class="btn btn-solid" onclick="finishTeslaAuth()">2. Complete Authorization</button>
-        </div>
-      </div>
-
-      <!-- PANE 3: TESLA FLEET API -->
-      <div id="pane-tesla-fleet" style="display: none;">
-        <div style="background: #161618; border: 1px solid var(--card-border); border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-          <div class="card-label" style="margin-bottom: 8px;">Official Tesla Fleet API (Developer Account)</div>
-          <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px;">
-            Connect using your registered developer credentials from <strong>developer.tesla.com</strong>.
-          </p>
-
-          <!-- SECTION 1: PUBLIC KEY & PARTNER REGISTRATION -->
-          <div style="background: #111113; border: 1px solid #28282c; border-radius: 6px; padding: 16px; margin-bottom: 20px;">
-            <div style="color: var(--text-primary); font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.08em;">
-              1. One-Time Partner Registration
-            </div>
-            <p style="font-size: 0.76rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">
-              Tesla requires every Developer App to host an EC public key on an allowed domain and register with Tesla before querying vehicles.
-            </p>
-
-            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap;">
-              <button class="btn btn-subtle" style="font-size: 0.72rem; padding: 6px 14px;" onclick="loadAndCopyPublicKey()">Copy Public Key (.pem)</button>
-              <a href="https://fleetkey.cc" target="_blank" class="btn btn-subtle" style="font-size: 0.72rem; padding: 6px 14px; text-decoration: none;">Open fleetkey.cc (Free Key Host)</a>
-            </div>
-
-            <div class="form-row">
-              <div class="field">
-                <label class="field-label">Client ID</label>
-                <input type="text" id="input-fleet-client-id" class="field-input" placeholder="Paste Client ID from developer.tesla.com">
-              </div>
-              <div class="field">
-                <label class="field-label">Client Secret</label>
-                <input type="password" id="input-fleet-client-secret" class="field-input" placeholder="Paste Client Secret">
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="field">
-                <label class="field-label">Registered Domain / FleetKey Subdomain</label>
-                <input type="text" id="input-fleet-domain" class="field-input" placeholder="e.g. abc123.fleetkey.net or your-domain.com">
-                <div class="field-hint">Must match the Allowed Origin in your Tesla Developer App settings.</div>
-              </div>
-              <div class="field">
-                <label class="field-label">Region</label>
-                <select id="input-fleet-region" class="field-input" style="height: 42px;">
-                  <option value="na" selected>North America & Asia-Pacific (fleet-api.prd.na)</option>
-                  <option value="eu">Europe & Middle East (fleet-api.prd.eu)</option>
-                </select>
-              </div>
-            </div>
-
-            <div style="margin-top: 10px;">
-              <button class="btn btn-solid" id="btn-register-partner" onclick="registerPartnerAccount()">Register Partner Account with Tesla</button>
-            </div>
-            <div id="partner-reg-log" class="terminal" style="display: none; height: 120px; margin-top: 12px; font-size: 0.72rem;"></div>
-          </div>
-
-          <!-- SECTION 2: VEHICLE AUTHORIZATION -->
-          <div style="background: #111113; border: 1px solid #28282c; border-radius: 6px; padding: 16px;">
-            <div style="color: var(--text-primary); font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.08em;">
-              2. Vehicle Authorization
-            </div>
-            <p style="font-size: 0.76rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">
-              Once your partner account is registered above, generate your sign-in link to authorize your Model 3:
-            </p>
-
-            <div class="field">
-              <label class="field-label">Redirect URI (Configured in Tesla Developer App)</label>
-              <input type="text" id="input-fleet-redirect-uri" class="field-input" value="https://auth.tesla.com/void/callback">
-            </div>
-
-            <div style="margin-top: 10px; margin-bottom: 14px;">
-              <button class="btn btn-solid" onclick="startFleetOAuth()">Generate Vehicle Sign-In Link</button>
-            </div>
-
-            <div id="fleet-auth-step2" style="display: none; background: #1a1a1c; border-radius: 8px; padding: 16px; margin-top: 14px;">
-              <div class="card-label" style="margin-bottom: 8px;">Step A: Sign in on Tesla</div>
-              <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px;">
-                Click below to grant charging and vehicle data access to your Model 3:
-              </p>
-              <a id="fleet-oauth-link" href="#" target="_blank" class="btn btn-solid" style="margin-bottom: 18px;">Open Tesla Authorization Page</a>
-
-              <div class="card-label" style="margin-bottom: 8px;">Step B: Paste Redirect URL</div>
-              <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px;">
-                After signing in, your browser will reach the redirect page. Copy the entire URL from the browser's address bar (containing <code>code=...</code>) and paste it below:
-              </p>
-              <div class="field">
-                <input type="text" id="input-fleet-code" class="field-input" placeholder="https://auth.tesla.com/void/callback?code=NA_...">
-              </div>
-              <button class="btn btn-solid" onclick="completeFleetOAuth()">Exchange Code & Connect Model 3</button>
-
-              <div id="token-display-box" style="display: none; margin-top: 16px; padding: 14px; background: #121214; border: 1px solid var(--card-border); border-radius: 6px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                  <span class="card-label">Bearer Token Active</span>
-                  <button class="btn btn-subtle" style="padding: 4px 10px; font-size: 0.68rem;" onclick="copyToken()">Copy Token</button>
-                </div>
-                <div class="field">
-                  <input type="text" id="token-display-val" class="field-input" readonly style="font-family: monospace; font-size: 0.72rem; color: #86efac;">
-                </div>
-                <div id="fleet-diag-log" class="terminal" style="height: 120px; margin-top: 10px; font-size: 0.72rem;"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- VIEW 4: MODBUS DIAGNOSTICS -->
-  <div id="view-modbus" class="view-pane">
-    <div class="card" style="max-width: 800px; margin: 0 auto;">
-      <div class="card-head">
-        <span class="card-label">SolarEdge Diagnostic Console</span>
-      </div>
-      <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 20px;">
-        Tests Modbus TCP connectivity to inverter at <span id="diag-endpoint-txt">192.168.40.169:1502</span> and verifies SunSpec register decoding.
-      </p>
-      <div style="margin-bottom: 16px;">
-        <button class="btn btn-solid" onclick="runDiagnostics()">Execute Modbus Test</button>
-      </div>
-      <div class="terminal" id="diag-terminal">Ready. Click "Execute Modbus Test" to begin query.</div>
-    </div>
-  </div>
-
-  <!-- VIEW 5: LOGS -->
-  <div id="view-logs" class="view-pane">
-    <div class="card">
-      <div class="card-head">
-        <span class="card-label">System Daemon Log</span>
-        <button class="btn btn-subtle" onclick="fetchServiceLogs()">Refresh</button>
-      </div>
-      <div class="terminal" id="logs-terminal" style="height: 480px;">Fetching logs...</div>
-    </div>
-  </div>
-</div>
-
-<!-- FIRST-TIME SETUP WIZARD MODAL -->
-<div class="modal-overlay" id="wizard-modal">
-  <div class="modal-card">
-    <div class="wizard-steps">
-      <span class="wizard-step-indicator active" id="wiz-step-1-lbl">1. Inverter</span>
-      <span class="wizard-step-indicator" id="wiz-step-2-lbl">2. Thresholds</span>
-      <span class="wizard-step-indicator" id="wiz-step-3-lbl">3. Tesla Auth</span>
-      <span class="wizard-step-indicator" id="wiz-step-4-lbl">4. Activate</span>
-    </div>
-
-    <!-- WIZARD STEP 1: INVERTER -->
-    <div class="wizard-pane active" id="wiz-pane-1">
-      <div class="wizard-title">Inverter Setup</div>
-      <div class="wizard-desc">
-        Configure your SolarEdge inverter local Modbus TCP endpoint. The optimizer connects directly over LAN to measure panel production in real time.
-      </div>
-      <div class="form-row">
-        <div class="field">
-          <label class="field-label">Inverter IP Address</label>
-          <input type="text" id="wiz-host" class="field-input" value="192.168.40.169">
-        </div>
-        <div class="field">
-          <label class="field-label">Modbus TCP Port</label>
-          <input type="number" id="wiz-port" class="field-input" value="1502">
-        </div>
-      </div>
-      <div style="margin: 12px 0;">
-        <button class="btn btn-subtle" onclick="testWizardModbus()">Test Inverter Connection</button>
-      </div>
-      <div id="wiz-modbus-result" style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px;"></div>
-      
-      <div class="wizard-footer">
-        <button class="btn btn-subtle" onclick="closeSetupWizard()">Skip Setup</button>
-        <button class="btn btn-solid" onclick="openSetupWizard(2)">Next: Thresholds</button>
-      </div>
-    </div>
-
-    <!-- WIZARD STEP 2: THRESHOLDS -->
-    <div class="wizard-pane" id="wiz-pane-2">
-      <div class="wizard-title">Charging Parameters</div>
-      <div class="wizard-desc">
-        Define household consumption and current limits. The optimizer calculates net surplus to charge solely from solar energy without pulling from the grid.
-      </div>
-      <div class="form-row">
-        <div class="field">
-          <label class="field-label">Start Threshold (Watts)</label>
-          <input type="number" id="wiz-start-w" class="field-input" value="1700">
-          <div class="field-hint">Default: 1,700 W (1.7 kW)</div>
-        </div>
-        <div class="field">
-          <label class="field-label">Household Baseline (Watts)</label>
-          <input type="number" id="wiz-base-w" class="field-input" value="600">
-          <div class="field-hint">Estimated house power draw.</div>
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="field">
-          <label class="field-label">Min Current (Amps)</label>
-          <input type="number" id="wiz-min-amps" class="field-input" value="5" min="5" max="12">
-        </div>
-        <div class="field">
-          <label class="field-label">Max Current (Amps)</label>
-          <input type="number" id="wiz-max-amps" class="field-input" value="12" min="5" max="12">
-        </div>
-      </div>
-      <div class="wizard-footer">
-        <button class="btn btn-subtle" onclick="openSetupWizard(1)">Back</button>
-        <button class="btn btn-solid" onclick="openSetupWizard(3)">Next: Tesla Login</button>
-      </div>
-    </div>
-
-    <!-- WIZARD STEP 3: TESLA ACCESS -->
-    <div class="wizard-pane" id="wiz-pane-3">
-      <div class="wizard-title">Tesla Vehicle Access</div>
-      <div class="wizard-desc">
-        Connect your Model 3 using the easiest method below.
-      </div>
-
-      <div class="form-section-title">Option A: Quick Connect (Tesla Refresh Token) - Recommended</div>
-      <div style="background: #161618; border: 1px solid var(--card-border); border-radius: 8px; padding: 16px; margin-bottom: 18px;">
-        <p style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5;">
-          Get your token in seconds via the free, open-source <strong>Tesla Auth</strong> app (iOS/Android/PC/Mac) or any token helper, paste it below, and connect instantly.
-        </p>
-        <div class="field">
-          <label class="field-label">Tesla Refresh Token</label>
-          <input type="password" id="wiz-quick-token" class="field-input" placeholder="Paste Tesla refresh token">
-        </div>
-        <button class="btn btn-solid" onclick="connectQuickToken(true)">Connect Model 3</button>
-        <div id="wiz-quick-feedback" style="display: none; margin-top: 12px; padding: 10px; border-radius: 6px; font-size: 0.8rem;"></div>
-      </div>
-
-      <div class="form-section-title">Option B: Tesla SSO Web Login (TeslaPy)</div>
-      <div style="background: #161618; border: 1px solid var(--card-border); border-radius: 8px; padding: 16px; margin-bottom: 18px;">
-        <div class="field">
-          <label class="field-label">Tesla Account Email</label>
-          <input type="email" id="wiz-tesla-email" class="field-input" placeholder="user@example.com">
-        </div>
-        <button class="btn btn-subtle" onclick="wizardGenerateTeslaLink()">Generate Tesla Login Link</button>
-        <div id="wiz-tesla-flow" style="display: none; background: #1a1a1c; border-radius: 8px; padding: 14px; margin-top: 14px;">
-          <div style="margin-bottom: 10px;">
-            <a id="wiz-tesla-link" href="#" target="_blank" class="btn btn-solid">Sign In With Tesla</a>
-          </div>
-          <div class="field">
-            <label class="field-label">Paste 'Page Not Found' Redirect URL</label>
-            <input type="text" id="wiz-tesla-callback" class="field-input" placeholder="https://auth.tesla.com/void/callback?code=...">
-          </div>
-          <button class="btn btn-solid" onclick="wizardCompleteTeslaAuth()">Verify & Save Credentials</button>
-        </div>
-      </div>
-
-      <details style="margin-bottom: 20px;">
-        <summary style="cursor: pointer; font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; padding: 4px 0;">Option C: Tesla Developer App (Fleet API)</summary>
-        <div style="background: #161618; border: 1px solid var(--card-border); border-radius: 8px; padding: 16px; margin-top: 12px;">
-          <div class="form-row">
-            <div class="field">
-              <label class="field-label">Client ID</label>
-              <input type="text" id="wiz-fleet-client-id" class="field-input" placeholder="Paste Client ID">
-            </div>
-            <div class="field">
-              <label class="field-label">Client Secret</label>
-              <input type="password" id="wiz-fleet-client-secret" class="field-input" placeholder="Paste Client Secret">
-            </div>
-          </div>
-          <button class="btn btn-solid" onclick="wizStartFleetOAuth()">Generate Sign-In Link</button>
-          <div id="wiz-fleet-step2" style="display: none; background: #1a1a1c; border-radius: 8px; padding: 14px; margin-top: 14px;">
-            <div style="margin-bottom: 10px;">
-              <a id="wiz-fleet-oauth-link" href="#" target="_blank" class="btn btn-solid">Sign In With Tesla Developer App</a>
-            </div>
-            <div class="field">
-              <label class="field-label">Paste Redirect URL</label>
-              <input type="text" id="wiz-fleet-callback" class="field-input" placeholder="https://auth.tesla.com/void/callback?code=...">
-            </div>
-            <button class="btn btn-solid" onclick="wizCompleteFleetOAuth()">Complete Fleet Authorization</button>
-          </div>
-        </div>
-      </details>
-
-      <div class="wizard-footer">
-        <button class="btn btn-subtle" onclick="openSetupWizard(2)">Back</button>
-        <button class="btn btn-solid" onclick="openSetupWizard(4)">Next: Review</button>
-      </div>
-    </div>
-
-    <!-- WIZARD STEP 4: REVIEW & ACTIVATE -->
-    <div class="wizard-pane" id="wiz-pane-4">
-      <div class="wizard-title">System Ready</div>
-      <div class="wizard-desc">
-        Setup is complete. The optimizer will continuously query your inverter, protect your vehicle from vampire drain, and modulate charging current to match excess solar.
-      </div>
-      <div class="data-list" style="margin-bottom: 24px;">
-        <div class="data-row">
-          <span class="k">Inverter Host</span>
-          <span class="v" id="wiz-sum-inverter">--</span>
-        </div>
-        <div class="data-row">
-          <span class="k">Start Trigger</span>
-          <span class="v" id="wiz-sum-start">--</span>
-        </div>
-        <div class="data-row">
-          <span class="k">Level 1 Current Range</span>
-          <span class="v" id="wiz-sum-range">5A - 12A</span>
-        </div>
-        <div class="data-row">
-          <span class="k">Tesla Account</span>
-          <span class="v" id="wiz-sum-tesla">--</span>
-        </div>
-      </div>
-      <div class="wizard-footer">
-        <button class="btn btn-subtle" onclick="openSetupWizard(3)">Back</button>
-        <button class="btn btn-solid" onclick="finalizeSetup()">Finish & Activate Optimizer</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-  let activeView = 'dashboard';
-  let activeOAuth = { state: '', codeVerifier: '', email: '' };
-
-  function switchView(viewId) {
-    activeView = viewId;
-    document.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.view-pane').forEach(p => p.classList.remove('active'));
-    event.target.classList.add('active');
-    document.getElementById('view-' + viewId).classList.add('active');
-
-    if (viewId === 'settings') loadSettings();
-    if (viewId === 'tesla') checkTeslaAccess();
-    if (viewId === 'logs') fetchServiceLogs();
-  }
-
-  function showBanner(text) {
-    const el = document.getElementById('notice-box');
-    el.textContent = text;
-    el.style.display = 'block';
-    setTimeout(() => { el.style.display = 'none'; }, 5000);
-  }
-
-  // Live Telemetry Poller (Every 3 seconds)
-  async function updateTelemetry() {
-    try {
-      const res = await fetch('/api/status');
-      if (!res.ok) return;
-      const data = await res.json();
-
-      // Inverter Telemetry
-      const se = data.solaredge || {};
-      const watts = se.power_watts || 0;
-      document.getElementById('metric-solar-w').textContent = Math.round(watts).toLocaleString() + ' W';
-      document.getElementById('metric-solar-kw').textContent = (watts / 1000).toFixed(2) + ' kW Generated';
-      document.getElementById('se-status-txt').textContent = se.status_desc || 'Unknown';
-      document.getElementById('se-endpoint').textContent = `${se.host || '192.168.40.169'}:${se.port || 1502}`;
-      document.getElementById('diag-endpoint-txt').textContent = `${se.host || '192.168.40.169'}:${se.port || 1502}`;
-
-      // Progress bar (scale to 3000W max)
-      const pct = Math.min(100, Math.max(0, (watts / 3000) * 100));
-      document.getElementById('solar-progress').style.width = pct + '%';
-
-      const seBadge = document.getElementById('se-badge');
-      if (se.connected) {
-        seBadge.textContent = 'Modbus Connected';
-        seBadge.classList.add('active');
-      } else {
-        seBadge.textContent = 'Disconnected';
-        seBadge.classList.remove('active');
-      }
-
-      // Tesla Telemetry
-      const tesla = data.tesla || {};
-      document.getElementById('metric-battery').textContent = tesla.battery_level !== null ? tesla.battery_level + ' %' : '-- %';
-      document.getElementById('metric-charge-state').textContent = 'State: ' + (tesla.charging_state || 'Standby / Asleep');
-      document.getElementById('tesla-plug-state').textContent = tesla.plugged_in === true ? 'Connected' : (tesla.plugged_in === false ? 'Unplugged' : 'Unknown');
-      document.getElementById('tesla-amps-val').textContent = (tesla.charger_actual_current || tesla.charge_amps || '--') + ' A';
-      document.getElementById('tesla-volts-val').textContent = (tesla.charger_voltage || 120) + ' V';
-      document.getElementById('tesla-soc-val').textContent = (tesla.charge_limit_soc || '--') + ' %';
-
-      const tBadge = document.getElementById('tesla-badge');
-      if (tesla.charging_state === 'Charging') {
-        tBadge.textContent = 'Charging';
-        tBadge.classList.add('active');
-      } else if (tesla.charging_state === 'Complete') {
-        tBadge.textContent = 'Full';
-        tBadge.classList.remove('active');
-      } else if (tesla.online) {
-        tBadge.textContent = 'Online';
-        tBadge.classList.add('active');
-      } else {
-        tBadge.textContent = 'Asleep';
-        tBadge.classList.remove('active');
-      }
-
-      // Controller
-      const ctrl = data.controller || {};
-      const activeAmps = ctrl.current_set_amps || ctrl.min_amps || 0;
-      document.getElementById('metric-allocated-amps').textContent = (ctrl.is_charging ? activeAmps : 0) + ' A';
-      document.getElementById('metric-allocated-w').textContent = (ctrl.is_charging ? Math.round(activeAmps * 120) : 0) + ' W Allocated to Vehicle';
-      document.getElementById('metric-net-surplus').textContent = Math.max(0, Math.round(watts - (ctrl.baseline_house_w || 600))) + ' W';
-      document.getElementById('se-threshold-txt').textContent = (ctrl.start_threshold_w || 1700).toLocaleString() + ' W';
-      document.getElementById('se-baseline-txt').textContent = (ctrl.baseline_house_w || 600).toLocaleString() + ' W';
-
-      // Mode State
-      const mode = ctrl.mode || 'auto';
-      document.getElementById('mode-auto').classList.toggle('btn-active-state', mode === 'auto');
-      document.getElementById('mode-force').classList.toggle('btn-active-state', mode === 'force');
-      document.getElementById('mode-off').classList.toggle('btn-active-state', mode === 'off');
-
-      let modeDesc = 'Solar Self-Consumption (Auto)';
-      if (mode === 'force') modeDesc = 'Force Charge (Continuous 12A)';
-      if (mode === 'off') modeDesc = 'Charging Disabled';
-      document.getElementById('current-mode-label').textContent = modeDesc;
-
-    } catch (e) {
-      console.error(e);
+    function showToast(msg) {
+      const t = document.getElementById('toast-msg');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3500);
     }
-  }
 
-  setInterval(updateTelemetry, 3000);
-  updateTelemetry();
-
-  async function setMode(mode) {
-    try {
-      const res = await fetch('/api/mode', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode })
-      });
-      const data = await res.json();
-      showBanner(data.message || 'Mode updated');
-      updateTelemetry();
-    } catch (e) {
-      showBanner('Failed to update mode: ' + e);
+    function onProviderChange() {
+      const p = document.getElementById('cfg-provider').value;
+      document.getElementById('form-tessie').style.display = (p === 'tessie') ? 'block' : 'none';
+      document.getElementById('form-ha').style.display = (p === 'homeassistant') ? 'block' : 'none';
+      document.getElementById('form-fleet').style.display = (p === 'fleet') ? 'block' : 'none';
+      document.getElementById('form-simulator').style.display = (p === 'simulator') ? 'block' : 'none';
+      document.getElementById('provider-badge').textContent = p.toUpperCase();
     }
-  }
 
-  // Settings
-  async function loadSettings() {
-    try {
-      const res = await fetch('/api/settings');
-      const data = await res.json();
-      document.getElementById('set-se-host').value = data.solaredge.host || '192.168.40.169';
-      document.getElementById('set-se-port').value = data.solaredge.port || 1502;
-      document.getElementById('set-start-w').value = data.charging.start_threshold_watts || 1700;
-      document.getElementById('set-base-w').value = data.charging.baseline_house_watts || 600;
-      document.getElementById('set-stop-w').value = data.charging.stop_threshold_watts || 1100;
-      document.getElementById('set-voltage').value = data.charging.voltage || 120;
-      document.getElementById('set-min-amps').value = data.charging.min_amps || 5;
-      document.getElementById('set-max-amps').value = data.charging.max_amps || 12;
-      document.getElementById('set-start-delay').value = data.charging.start_delay_seconds || 120;
-      document.getElementById('set-stop-delay').value = data.charging.stop_delay_seconds || 180;
-      document.getElementById('set-wa-enabled').checked = !!data.whatsapp.enabled;
-      document.getElementById('set-wa-phone').value = data.whatsapp.callmebot.phone || '';
-      document.getElementById('set-wa-key').value = data.whatsapp.callmebot.apikey || '';
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  async function saveConfiguration(e) {
-    e.preventDefault();
-    const payload = {
-      solaredge: {
-        host: document.getElementById('set-se-host').value.trim(),
-        port: parseInt(document.getElementById('set-se-port').value),
-      },
-      charging: {
-        start_threshold_watts: parseInt(document.getElementById('set-start-w').value),
-        baseline_house_watts: parseInt(document.getElementById('set-base-w').value),
-        stop_threshold_watts: parseInt(document.getElementById('set-stop-w').value),
-        voltage: parseInt(document.getElementById('set-voltage').value),
-        min_amps: parseInt(document.getElementById('set-min-amps').value),
-        max_amps: parseInt(document.getElementById('set-max-amps').value),
-        start_delay_seconds: parseInt(document.getElementById('set-start-delay').value),
-        stop_delay_seconds: parseInt(document.getElementById('set-stop-delay').value),
-      },
-      whatsapp: {
-        enabled: document.getElementById('set-wa-enabled').checked,
-        provider: 'callmebot',
-        callmebot: {
-          phone: document.getElementById('set-wa-phone').value.trim(),
-          apikey: document.getElementById('set-wa-key').value.trim(),
+    async function setMode(newMode) {
+      try {
+        const res = await fetch('/api/mode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: newMode })
+        });
+        const data = await res.json();
+        if (data.success) {
+          updateModeButtons(newMode);
+          showToast(`Mode updated to ${newMode.toUpperCase()}`);
+          fetchStatus();
+        } else {
+          showToast(`Error: ${data.error}`);
         }
+      } catch (e) {
+        showToast(`Failed to set mode: ${e.message}`);
       }
-    };
-
-    try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      showBanner(data.message || 'Configuration saved successfully.');
-    } catch (err) {
-      showBanner('Save failed: ' + err);
-    }
-  }
-
-  // Tesla Mode Switching
-  function switchTeslaMode(mode) {
-    document.getElementById('pane-tesla-quick').style.display = (mode === 'quick') ? 'block' : 'none';
-    document.getElementById('pane-tesla-teslapy').style.display = (mode === 'teslapy') ? 'block' : 'none';
-    document.getElementById('pane-tesla-fleet').style.display = (mode === 'fleet') ? 'block' : 'none';
-    document.getElementById('btn-sub-quick').classList.toggle('active', mode === 'quick');
-    document.getElementById('btn-sub-teslapy').classList.toggle('active', mode === 'teslapy');
-    document.getElementById('btn-sub-fleet').classList.toggle('active', mode === 'fleet');
-  }
-
-  async function connectQuickToken(isWizard = false) {
-    const inputId = isWizard ? 'wiz-quick-token' : 'input-quick-token';
-    const feedbackId = isWizard ? 'wiz-quick-feedback' : 'quick-token-feedback';
-    const token = document.getElementById(inputId).value.trim();
-    const feedback = document.getElementById(feedbackId);
-
-    if (!token) {
-      alert('Please paste your Tesla refresh token.');
-      return;
     }
 
-    feedback.style.display = 'block';
-    feedback.style.background = '#1a1a1c';
-    feedback.style.color = 'var(--text-secondary)';
-    feedback.textContent = 'Connecting to Tesla Owner API...';
-
-    try {
-      const res = await fetch('/api/tesla/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token })
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        feedback.style.background = '#0d2818';
-        feedback.style.color = '#30d158';
-        const vList = data.vehicles && data.vehicles.length ? data.vehicles.join(', ') : 'Model 3';
-        feedback.textContent = 'Connected successfully to ' + vList;
-        showBanner('Connected successfully to ' + vList);
-        checkTeslaAccess();
-      } else {
-        feedback.style.background = '#2c1517';
-        feedback.style.color = '#ff453a';
-        feedback.textContent = 'Connection failed: ' + (data.error || 'Invalid token');
-        showBanner(data.error || 'Token connection failed');
-      }
-    } catch (e) {
-      feedback.style.background = '#2c1517';
-      feedback.style.color = '#ff453a';
-      feedback.textContent = 'Error: ' + e;
-      showBanner('Error: ' + e);
-    }
-  }
-
-  let fleetOAuth = { clientId: '', clientSecret: '', redirectUri: '', region: 'na' };
-
-  async function loadAndCopyPublicKey() {
-    try {
-      showBanner('Retrieving EC public key...');
-      const res = await fetch('/api/fleet/public-key');
-      const data = await res.json();
-      if (data.success && data.public_key) {
-        await navigator.clipboard.writeText(data.public_key);
-        showBanner('Public Key copied to clipboard! Paste it into fleetkey.cc');
-        alert('Public Key copied to clipboard!\n\nNext step:\n1. Open https://fleetkey.cc\n2. Paste your public key\n3. Copy your assigned subdomain (e.g. abc123.fleetkey.net)\n4. Paste into Registered Domain below.');
-      } else {
-        showBanner(data.error || 'Could not retrieve public key');
-      }
-    } catch (e) {
-      showBanner('Error: ' + e);
-    }
-  }
-
-  async function registerPartnerAccount() {
-    const clientId = document.getElementById('input-fleet-client-id').value.trim();
-    const clientSecret = document.getElementById('input-fleet-client-secret').value.trim();
-    const domain = document.getElementById('input-fleet-domain').value.trim();
-    const region = document.getElementById('input-fleet-region').value;
-    const logEl = document.getElementById('partner-reg-log');
-
-    if (!clientId || !clientSecret || !domain) {
-      alert('Please enter Client ID, Client Secret, and Registered Domain');
-      return;
+    function updateModeButtons(activeMode) {
+      document.getElementById('btn-mode-auto').classList.toggle('active', activeMode === 'auto');
+      document.getElementById('btn-mode-force').classList.toggle('active', activeMode === 'force');
+      document.getElementById('btn-mode-off').classList.toggle('active', activeMode === 'off');
     }
 
-    logEl.style.display = 'block';
-    logEl.textContent = 'Requesting partner registration with Tesla Fleet API...\nContacting Tesla servers...\n';
-    showBanner('Registering developer account with Tesla...');
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/status');
+        if (!res.ok) return;
+        const d = await res.json();
 
-    try {
-      const res = await fetch('/api/fleet/register-partner', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, domain, region })
-      });
-      const data = await res.json();
-      logEl.textContent = data.log || JSON.stringify(data, null, 2);
+        // Solar
+        const se = d.solaredge || {};
+        const solarW = se.power_watts || 0;
+        document.getElementById('val-solar-watts').textContent = solarW.toLocaleString();
+        document.getElementById('sub-solar-status').textContent = `${se.power_kw || 0} kW | ${se.status_desc || 'OFF'}`;
 
-      if (data.success) {
-        showBanner('Partner Account registered successfully with Tesla!');
-        alert('Partner account registered successfully!\n\nYou can now proceed to Section 2 below: Generate Vehicle Sign-In Link.');
-      } else {
-        showBanner(data.error || 'Registration failed');
-      }
-    } catch (e) {
-      logEl.textContent += '\nNetwork error: ' + e;
-      showBanner('Error: ' + e);
-    }
-  }
+        // Baseline & Surplus
+        const ctrl = d.controller || {};
+        document.getElementById('val-baseline-watts').textContent = (ctrl.baseline_house_w || 600).toLocaleString();
+        document.getElementById('val-surplus-watts').textContent = (ctrl.surplus_watts || 0).toLocaleString();
+        document.getElementById('sub-surplus-kw').textContent = `${ctrl.surplus_kw || 0} kW Available`;
 
-  async function startFleetOAuth() {
-    const clientId = document.getElementById('input-fleet-client-id').value.trim();
-    const clientSecret = document.getElementById('input-fleet-client-secret').value.trim();
-    const redirectUri = document.getElementById('input-fleet-redirect-uri').value.trim() || 'https://auth.tesla.com/void/callback';
-    const region = document.getElementById('input-fleet-region').value;
+        // Charging Amps
+        const amps = ctrl.is_charging ? (ctrl.current_set_amps || 0) : 0;
+        document.getElementById('val-charging-amps').textContent = amps;
+        const chargingW = amps * (ctrl.voltage || 120);
+        document.getElementById('sub-charging-watts').textContent = `${ctrl.voltage || 120}V Level 1 (${chargingW} W)`;
 
-    if (!clientId || !clientSecret) {
-      alert('Please enter both Client ID and Client Secret');
-      return;
-    }
+        // Vehicle
+        const veh = d.vehicle || {};
+        const battery = veh.battery_level;
+        document.getElementById('val-battery-pct').textContent = (battery !== null && battery !== undefined) ? battery : '--';
+        document.getElementById('val-battery-bar').style.width = (battery ? battery : 0) + '%';
+        document.getElementById('sub-vehicle-status').textContent = `${veh.charging_state || 'Disconnected'} | ${veh.name || 'Model 3'}`;
 
-    try {
-      const res = await fetch('/api/fleet/oauth-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_id: clientId, redirect_uri: redirectUri })
-      });
-      const data = await res.json();
-      if (data.url) {
-        fleetOAuth = { clientId, clientSecret, redirectUri, region };
-        document.getElementById('fleet-oauth-link').href = data.url;
-        document.getElementById('fleet-auth-step2').style.display = 'block';
-        showBanner('Authorization link generated. Open link to sign in on Tesla.');
-      } else {
-        showBanner(data.error || 'Failed to generate link');
-      }
-    } catch (e) {
-      showBanner('Error: ' + e);
-    }
-  }
-
-  function copyToken() {
-    const el = document.getElementById('token-display-val');
-    el.select();
-    navigator.clipboard.writeText(el.value);
-    showBanner('Bearer access token copied to clipboard.');
-  }
-
-  async function completeFleetOAuth() {
-    const code = document.getElementById('input-fleet-code').value.trim();
-    if (!code) {
-      alert('Please paste the redirect URL containing code=...');
-      return;
-    }
-    showBanner('Exchanging code for Bearer access token...');
-    try {
-      const res = await fetch('/api/fleet/exchange-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_id: fleetOAuth.clientId,
-          client_secret: fleetOAuth.clientSecret,
-          code: code,
-          redirect_uri: fleetOAuth.redirectUri,
-          region: fleetOAuth.region
-        })
-      });
-      const data = await res.json();
-      if (data.access_token) {
-        document.getElementById('token-display-box').style.display = 'block';
-        document.getElementById('token-display-val').value = data.access_token;
-        document.getElementById('input-fleet-token').value = data.access_token;
-        if (data.diagnostic_log) {
-          document.getElementById('fleet-diag-log').textContent = data.diagnostic_log;
+        // Mode buttons
+        if (ctrl.mode) {
+          updateModeButtons(ctrl.mode);
         }
+
+        // Header status
+        const dot = document.getElementById('system-dot');
+        const stateText = document.getElementById('system-state-text');
+        if (ctrl.is_charging) {
+          dot.style.background = '#30d158';
+          dot.style.boxShadow = '0 0 8px #30d158';
+          stateText.textContent = `CHARGING (${amps}A)`;
+        } else if (ctrl.mode === 'off') {
+          dot.style.background = '#ff453a';
+          dot.style.boxShadow = '0 0 8px #ff453a';
+          stateText.textContent = 'STOPPED';
+        } else {
+          dot.style.background = '#3e6ae1';
+          dot.style.boxShadow = '0 0 8px #3e6ae1';
+          stateText.textContent = 'SYSTEM ONLINE';
+        }
+      } catch (e) {
+        console.error('Status fetch failed', e);
       }
-      if (data.authorized) {
-        showBanner('Tesla Model 3 authorized and connected successfully!');
-        checkTeslaAccess();
-      } else if (data.success) {
-        showBanner('Tokens exchanged and saved! Check diagnostics below.');
-        checkTeslaAccess();
-      } else {
-        showBanner(data.error || 'Token exchange failed.');
+    }
+
+    async function loadConfig() {
+      try {
+        const res = await fetch('/api/config');
+        if (!res.ok) return;
+        currentConfig = await res.json();
+
+        // SolarEdge
+        const se = currentConfig.solaredge || {};
+        if (se.host) document.getElementById('cfg-se-host').value = se.host;
+        if (se.port) document.getElementById('cfg-se-port').value = se.port;
+
+        // Charging
+        const chg = currentConfig.charging || {};
+        if (chg.start_threshold_watts) document.getElementById('cfg-chg-start').value = chg.start_threshold_watts;
+        if (chg.stop_threshold_watts) document.getElementById('cfg-chg-stop').value = chg.stop_threshold_watts;
+        if (chg.baseline_house_watts) document.getElementById('cfg-chg-baseline').value = chg.baseline_house_watts;
+
+        // Vehicle
+        const veh = currentConfig.vehicle || {};
+        const prov = (veh.provider || 'tessie').toLowerCase();
+        document.getElementById('cfg-provider').value = prov;
+
+        const tessie = veh.tessie || {};
+        if (tessie.api_key) document.getElementById('cfg-tessie-key').value = tessie.api_key;
+        if (tessie.vin) document.getElementById('cfg-tessie-vin').value = tessie.vin;
+
+        const ha = veh.homeassistant || {};
+        if (ha.url) document.getElementById('cfg-ha-url').value = ha.url;
+        if (ha.token) document.getElementById('cfg-ha-token').value = ha.token;
+        if (ha.switch_entity) document.getElementById('cfg-ha-switch').value = ha.switch_entity;
+        if (ha.amps_entity) document.getElementById('cfg-ha-amps').value = ha.amps_entity;
+        if (ha.soc_entity) document.getElementById('cfg-ha-soc').value = ha.soc_entity;
+
+        const fl = veh.fleet || {};
+        if (fl.client_id) document.getElementById('cfg-fleet-id').value = fl.client_id;
+        if (fl.client_secret) document.getElementById('cfg-fleet-secret').value = fl.client_secret;
+        if (fl.refresh_token) document.getElementById('cfg-fleet-refresh').value = fl.refresh_token;
+
+        onProviderChange();
+      } catch (e) {
+        console.error('Config fetch failed', e);
       }
-    } catch (e) {
-      showBanner('Error: ' + e);
     }
-  }
 
-  async function saveDirectFleetToken() {
-    const token = document.getElementById('input-fleet-token').value.trim();
-    const region = document.getElementById('input-fleet-region').value;
-    if (!token) {
-      alert('Please enter your Bearer token');
-      return;
-    }
-    try {
-      showBanner('Verifying token with Tesla...');
-      const res = await fetch('/api/fleet/configure', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ access_token: token, region })
-      });
-      const data = await res.json();
-      const logEl = document.getElementById('direct-token-log');
-      logEl.style.display = 'block';
-      logEl.textContent = data.diagnostic_log || data.error || JSON.stringify(data, null, 2);
+    async function saveVehicleConfig() {
+      const prov = document.getElementById('cfg-provider').value;
+      const vehData = { provider: prov };
 
-      if (data.success) {
-        showBanner('Connected successfully to vehicle!');
-        checkTeslaAccess();
-      } else {
-        showBanner(data.error || 'Connection failed.');
+      if (prov === 'tessie') {
+        vehData.tessie = {
+          api_key: document.getElementById('cfg-tessie-key').value.trim(),
+          vin: document.getElementById('cfg-tessie-vin').value.trim()
+        };
+      } else if (prov === 'homeassistant') {
+        vehData.homeassistant = {
+          url: document.getElementById('cfg-ha-url').value.trim(),
+          token: document.getElementById('cfg-ha-token').value.trim(),
+          switch_entity: document.getElementById('cfg-ha-switch').value.trim(),
+          amps_entity: document.getElementById('cfg-ha-amps').value.trim(),
+          soc_entity: document.getElementById('cfg-ha-soc').value.trim()
+        };
+      } else if (prov === 'fleet') {
+        vehData.fleet = {
+          client_id: document.getElementById('cfg-fleet-id').value.trim(),
+          client_secret: document.getElementById('cfg-fleet-secret').value.trim(),
+          refresh_token: document.getElementById('cfg-fleet-refresh').value.trim()
+        };
+      } else if (prov === 'simulator') {
+        vehData.simulator = { enabled: true };
       }
-    } catch (e) {
-      showBanner('Error: ' + e);
-    }
-  }
 
-  // Tesla Authentication Status
-  async function checkTeslaAccess() {
-    try {
-      const res = await fetch('/api/tesla/status');
-      const data = await res.json();
-      const badge = document.getElementById('tesla-auth-tag');
-      const detail = document.getElementById('tesla-auth-detail');
-
-      if (data.authorized) {
-        badge.textContent = 'Authorized';
-        badge.classList.add('active');
-        const providerName = (data.provider === 'fleet' && data.client_id === 'ownerapi') ? 'Tesla Owner API (Quick Connect)' : (data.provider === 'fleet' ? 'Tesla Fleet API' : 'TeslaPy SSO');
-        detail.innerHTML = `<div style="font-size: 0.9rem; font-weight: 500;">Connected via ${providerName}</div>
-          <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">Vehicles: ${data.vehicles && data.vehicles.length ? data.vehicles.join(', ') : 'Model 3'}</div>`;
-      } else {
-        badge.textContent = 'Not Authorized';
-        badge.classList.remove('active');
-        let diagText = data.diagnostic_message ? `<div style="font-size: 0.75rem; color: #ff453a; margin-top: 6px;">Tesla response: ${data.diagnostic_message}</div>` : '';
-        detail.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-secondary);">Authorization required. Connect using your Refresh Token above or use Tesla SSO Login.</div>${diagText}`;
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vehicle: vehData })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Vehicle configuration saved and active.');
+          fetchStatus();
+        } else {
+          showToast(`Save error: ${data.error}`);
+        }
+      } catch (e) {
+        showToast(`Save failed: ${e.message}`);
       }
-      if (data.masked_token && !document.getElementById('input-fleet-token').value) {
-        document.getElementById('input-fleet-token').placeholder = `Current token: ${data.masked_token}`;
+    }
+
+    async function testVehicleConnection() {
+      const box = document.getElementById('vehicle-console');
+      box.style.display = 'block';
+      box.textContent = 'Testing vehicle connection...';
+
+      const prov = document.getElementById('cfg-provider').value;
+      const payload = { provider: prov };
+
+      if (prov === 'tessie') {
+        payload.tessie = {
+          api_key: document.getElementById('cfg-tessie-key').value.trim(),
+          vin: document.getElementById('cfg-tessie-vin').value.trim()
+        };
+      } else if (prov === 'homeassistant') {
+        payload.homeassistant = {
+          url: document.getElementById('cfg-ha-url').value.trim(),
+          token: document.getElementById('cfg-ha-token').value.trim(),
+          switch_entity: document.getElementById('cfg-ha-switch').value.trim(),
+          amps_entity: document.getElementById('cfg-ha-amps').value.trim(),
+          soc_entity: document.getElementById('cfg-ha-soc').value.trim()
+        };
+      } else if (prov === 'fleet') {
+        payload.fleet = {
+          client_id: document.getElementById('cfg-fleet-id').value.trim(),
+          client_secret: document.getElementById('cfg-fleet-secret').value.trim(),
+          refresh_token: document.getElementById('cfg-fleet-refresh').value.trim()
+        };
       }
-      if (data.email) {
-        document.getElementById('input-tesla-email').value = data.email;
+
+      try {
+        const res = await fetch('/api/test-vehicle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const d = await res.json();
+        box.textContent = d.log || JSON.stringify(d, null, 2);
+        if (d.success) {
+          showToast('Vehicle connected successfully!');
+          fetchStatus();
+        } else {
+          showToast('Vehicle connection failed. Check console output.');
+        }
+      } catch (e) {
+        box.textContent = `Network error: ${e.message}`;
       }
-      if (data.client_id && document.getElementById('input-fleet-client-id')) {
-        document.getElementById('input-fleet-client-id').value = data.client_id;
+    }
+
+    async function saveInverterConfig() {
+      const seData = {
+        host: document.getElementById('cfg-se-host').value.trim(),
+        port: parseInt(document.getElementById('cfg-se-port').value, 10) || 1502
+      };
+      const chgData = {
+        start_threshold_watts: parseInt(document.getElementById('cfg-chg-start').value, 10) || 1700,
+        stop_threshold_watts: parseInt(document.getElementById('cfg-chg-stop').value, 10) || 1100,
+        baseline_house_watts: parseInt(document.getElementById('cfg-chg-baseline').value, 10) || 600
+      };
+
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ solaredge: seData, charging: chgData })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Inverter & solar thresholds saved.');
+          fetchStatus();
+        } else {
+          showToast(`Save error: ${data.error}`);
+        }
+      } catch (e) {
+        showToast(`Save failed: ${e.message}`);
       }
-      if (data.domain && document.getElementById('input-fleet-domain')) {
-        document.getElementById('input-fleet-domain').value = data.domain;
+    }
+
+    async function testInverterConnection() {
+      const box = document.getElementById('inverter-console');
+      box.style.display = 'block';
+      box.textContent = 'Connecting to SolarEdge Modbus TCP...';
+
+      const payload = {
+        host: document.getElementById('cfg-se-host').value.trim(),
+        port: parseInt(document.getElementById('cfg-se-port').value, 10) || 1502,
+        unit_id: 1
+      };
+
+      try {
+        const res = await fetch('/api/test-inverter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const d = await res.json();
+        box.textContent = d.log || JSON.stringify(d, null, 2);
+        if (d.success) {
+          showToast(`SolarEdge connected! (${d.power_watts} W)`);
+          fetchStatus();
+        } else {
+          showToast('Inverter connection failed. Check console output.');
+        }
+      } catch (e) {
+        box.textContent = `Network error: ${e.message}`;
       }
-    } catch (e) {
-      console.error(e);
     }
-  }
 
-  async function beginTeslaAuth() {
-    const email = document.getElementById('input-tesla-email').value.trim();
-    if (!email) {
-      alert('Please enter your Tesla email');
-      return;
-    }
-    try {
-      const res = await fetch('/api/tesla/auth-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      const data = await res.json();
-      if (data.url) {
-        activeOAuth = { state: data.state, codeVerifier: data.code_verifier, email };
-        document.getElementById('tesla-link-btn').href = data.url;
-        document.getElementById('tesla-auth-flow').style.display = 'block';
-        showBanner('Login URL generated. Open login page to proceed.');
-      } else {
-        showBanner(data.error || 'Failed to generate link');
+    async function fetchLogs() {
+      try {
+        const res = await fetch('/api/logs');
+        if (!res.ok) return;
+        const d = await res.json();
+        const box = document.getElementById('system-log');
+        box.textContent = d.logs || 'No log data available.';
+        box.scrollTop = box.scrollHeight;
+      } catch (e) {
+        console.error('Log fetch failed', e);
       }
-    } catch (e) {
-      showBanner('Error: ' + e);
     }
-  }
 
-  async function finishTeslaAuth() {
-    const redirectUrl = document.getElementById('input-tesla-callback').value.trim();
-    if (!redirectUrl) {
-      alert('Please paste the redirect URL');
-      return;
-    }
-    try {
-      showBanner('Verifying token with Tesla...');
-      const res = await fetch('/api/tesla/complete-auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: activeOAuth.email,
-          redirect_url: redirectUrl,
-          state: activeOAuth.state,
-          code_verifier: activeOAuth.codeVerifier
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        showBanner('Tesla account authorized successfully.');
-        checkTeslaAccess();
-        document.getElementById('tesla-auth-flow').style.display = 'none';
-      } else {
-        showBanner(data.error || 'Token verification failed.');
-      }
-    } catch (e) {
-      showBanner('Error: ' + e);
-    }
-  }
-
-  // Diagnostics
-  async function runDiagnostics() {
-    const term = document.getElementById('diag-terminal');
-    term.textContent = 'Initiating Modbus TCP query to SolarEdge inverter...\nConnecting...\n';
-    try {
-      const res = await fetch('/api/test-modbus');
-      const data = await res.json();
-      term.textContent = data.log || JSON.stringify(data, null, 2);
-    } catch (e) {
-      term.textContent = 'Diagnostic error: ' + e;
-    }
-  }
-
-  // Logs
-  async function fetchServiceLogs() {
-    try {
-      const res = await fetch('/api/logs');
-      const data = await res.json();
-      const term = document.getElementById('logs-terminal');
-      term.textContent = data.logs || 'No log data.';
-      term.scrollTop = term.scrollHeight;
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  // SETUP WIZARD
-  function openSetupWizard(step = 1) {
-    document.querySelectorAll('.wizard-pane').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.wizard-step-indicator').forEach(i => i.classList.remove('active'));
-    document.getElementById('wiz-pane-' + step).classList.add('active');
-    document.getElementById('wiz-step-' + step + '-lbl').classList.add('active');
-    document.getElementById('wizard-modal').style.display = 'flex';
-
-    if (step === 4) {
-      document.getElementById('wiz-sum-inverter').textContent = document.getElementById('wiz-host').value + ':' + document.getElementById('wiz-port').value;
-      document.getElementById('wiz-sum-start').textContent = document.getElementById('wiz-start-w').value + ' W';
-      document.getElementById('wiz-sum-range').textContent = document.getElementById('wiz-min-amps').value + 'A - ' + document.getElementById('wiz-max-amps').value + 'A';
-      document.getElementById('wiz-sum-tesla').textContent = document.getElementById('wiz-tesla-email').value || 'Unconfigured';
-    }
-  }
-
-  function closeSetupWizard() {
-    document.getElementById('wizard-modal').style.display = 'none';
-  }
-
-  async function testWizardModbus() {
-    const out = document.getElementById('wiz-modbus-result');
-    out.textContent = 'Testing connection...';
-    try {
-      const res = await fetch('/api/test-modbus');
-      const data = await res.json();
-      out.textContent = data.log.includes('[OK]') ? 'Connection successful!' : 'Connection check failed (Verify IP / Wi-Fi antenna).';
-    } catch (e) {
-      out.textContent = 'Error testing: ' + e;
-    }
-  }
-
-  async function wizStartFleetOAuth() {
-    const clientId = document.getElementById('wiz-fleet-client-id').value.trim();
-    const clientSecret = document.getElementById('wiz-fleet-client-secret').value.trim();
-    if (!clientId || !clientSecret) {
-      alert('Please enter both Client ID and Client Secret');
-      return;
-    }
-    const msg = document.getElementById('wiz-tesla-msg');
-    msg.textContent = 'Generating authorization link...';
-    try {
-      const res = await fetch('/api/fleet/oauth-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_id: clientId, redirect_uri: 'https://auth.tesla.com/void/callback' })
-      });
-      const data = await res.json();
-      if (data.url) {
-        fleetOAuth = { clientId, clientSecret, redirectUri: 'https://auth.tesla.com/void/callback', region: 'na' };
-        document.getElementById('wiz-fleet-oauth-link').href = data.url;
-        document.getElementById('wiz-fleet-step2').style.display = 'block';
-        msg.textContent = 'Link generated. Click below to sign in on Tesla.';
-      } else {
-        msg.textContent = data.error || 'Failed to generate link';
-      }
-    } catch (e) {
-      msg.textContent = 'Error: ' + e;
-    }
-  }
-
-  async function wizCompleteFleetOAuth() {
-    const code = document.getElementById('wiz-fleet-callback').value.trim();
-    const msg = document.getElementById('wiz-tesla-msg');
-    if (!code) {
-      alert('Please paste the redirect URL containing code=...');
-      return;
-    }
-    msg.textContent = 'Exchanging code for Bearer access token...';
-    try {
-      const res = await fetch('/api/fleet/exchange-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_id: fleetOAuth.clientId,
-          client_secret: fleetOAuth.clientSecret,
-          code: code,
-          redirect_uri: fleetOAuth.redirectUri,
-          region: fleetOAuth.region
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        msg.textContent = 'Connected successfully: ' + (data.vehicles && data.vehicles.length ? data.vehicles.join(', ') : 'Vehicle active');
-        document.getElementById('wiz-fleet-step2').style.display = 'none';
-      } else {
-        msg.textContent = data.error || 'Exchange failed';
-      }
-    } catch (e) {
-      msg.textContent = 'Error: ' + e;
-    }
-  }
-
-  async function wizardGenerateTeslaLink() {
-    const email = document.getElementById('wiz-tesla-email').value.trim();
-    if (!email) {
-      alert('Please enter your Tesla email');
-      return;
-    }
-    try {
-      const res = await fetch('/api/tesla/auth-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
-      });
-      const data = await res.json();
-      if (data.url) {
-        activeOAuth = { state: data.state, codeVerifier: data.code_verifier, email };
-        document.getElementById('wiz-tesla-link').href = data.url;
-        document.getElementById('wiz-tesla-flow').style.display = 'block';
-      }
-    } catch (e) {
-      alert('Error: ' + e);
-    }
-  }
-
-  async function wizardCompleteTeslaAuth() {
-    const redirectUrl = document.getElementById('wiz-tesla-callback').value.trim();
-    const msg = document.getElementById('wiz-tesla-msg');
-    msg.textContent = 'Exchanging token with Tesla...';
-    try {
-      const res = await fetch('/api/tesla/complete-auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: activeOAuth.email,
-          redirect_url: redirectUrl,
-          state: activeOAuth.state,
-          code_verifier: activeOAuth.codeVerifier
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        msg.textContent = 'Tesla account authenticated successfully.';
-        document.getElementById('wiz-tesla-flow').style.display = 'none';
-      } else {
-        msg.textContent = 'Authentication error. Please recheck URL.';
-      }
-    } catch (e) {
-      msg.textContent = 'Error: ' + e;
-    }
-  }
-
-  async function finalizeSetup() {
-    // Save settings from wizard
-    const payload = {
-      solaredge: {
-        host: document.getElementById('wiz-host').value.trim(),
-        port: parseInt(document.getElementById('wiz-port').value),
-      },
-      charging: {
-        start_threshold_watts: parseInt(document.getElementById('wiz-start-w').value),
-        baseline_house_watts: parseInt(document.getElementById('wiz-base-w').value),
-        min_amps: parseInt(document.getElementById('wiz-min-amps').value),
-        max_amps: parseInt(document.getElementById('wiz-max-amps').value),
-      }
-    };
-    try {
-      await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      await fetch('/api/setup-complete', { method: 'POST' });
-      closeSetupWizard();
-      showBanner('Setup completed. Solar self-consumption active.');
-      updateTelemetry();
-    } catch (e) {
-      closeSetupWizard();
-    }
-  }
-
-  // Check on load if first-time setup popup is needed
-  window.addEventListener('DOMContentLoaded', async () => {
-    try {
-      const res = await fetch('/api/setup-status');
-      const data = await res.json();
-      if (!data.setup_completed && !data.tesla_authorized) {
-        openSetupWizard(1);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  });
-</script>
+    // Auto-refresh loops
+    loadConfig();
+    fetchStatus();
+    fetchLogs();
+    setInterval(fetchStatus, 4000);
+    setInterval(fetchLogs, 10000);
+  </script>
 </body>
 </html>

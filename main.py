@@ -13,36 +13,12 @@ import time
 import yaml
 
 from solaredge import SolarEdgeClient
-from tesla_client import TeslaController
-from tesla_fleet import TeslaFleetClient
+from vehicle import create_vehicle_client, BaseVehicleClient
 from notifier import WhatsAppNotifier
 from controller import SolarChargingController
 from web.app import create_app
 
 stop_requested = False
-
-
-def create_tesla_client(tesla_cfg: dict):
-    """Instantiate TeslaFleetClient or TeslaController (TeslaPy) based on config."""
-    provider = tesla_cfg.get("provider", "fleet").lower()
-    fleet_cfg = tesla_cfg.get("fleet", {})
-
-    if provider == "fleet" or fleet_cfg.get("access_token") or tesla_cfg.get("access_token"):
-        cfg = fleet_cfg if fleet_cfg else {
-            "access_token": tesla_cfg.get("access_token"),
-            "refresh_token": tesla_cfg.get("refresh_token"),
-            "client_id": tesla_cfg.get("client_id"),
-            "client_secret": tesla_cfg.get("client_secret"),
-            "region": tesla_cfg.get("region", "na"),
-            "vin": tesla_cfg.get("vin")
-        }
-        return TeslaFleetClient(cfg)
-    else:
-        return TeslaController(
-            email=tesla_cfg.get("email", ""),
-            vin=tesla_cfg.get("vin")
-        )
-
 
 
 def sig_handler(signum, frame):
@@ -88,16 +64,10 @@ def run_optimizer_loop(controller: SolarChargingController, poll_interval: int):
 
     while not stop_requested:
         try:
-            # Check if Tesla is authorized before evaluating
-            if not controller.tesla.vehicle:
-                # Attempt lazy initialization if credentials were saved via Web Dashboard
-                controller.tesla.initialize()
-
             controller.evaluate_step()
         except Exception as e:
             logger.error("Unexpected error during optimizer evaluation: %s", e, exc_info=True)
 
-        # Sleep with responsive interrupt handling
         sleep_until = time.time() + poll_interval
         while time.time() < sleep_until and not stop_requested:
             time.sleep(0.5)
@@ -123,7 +93,7 @@ def main():
     setup_logging(config)
     logger = logging.getLogger("main")
     logger.info("================================================================")
-    logger.info(" SolarEdge ↔ Tesla Solar Optimizer Service Starting...")
+    logger.info(" SolarEdge // Tesla Solar Optimizer Service Starting...")
     logger.info("================================================================")
 
     # Register signals for clean shutdown
@@ -139,16 +109,13 @@ def main():
         timeout=se_cfg.get("timeout", 5)
     )
 
-    # Initialize Tesla controller (Non-fatal so Web Dashboard always starts!)
-    tesla_cfg = config.get("tesla", {})
+    # Initialize Vehicle client
+    veh_cfg = config.get("vehicle") or config.get("tesla", {})
+    vehicle_client = create_vehicle_client(veh_cfg)
     try:
-        tesla_client = create_tesla_client(tesla_cfg)
-        if not tesla_client.initialize():
-            logger.warning("Tesla account is not yet authorized.")
-            logger.warning("Open the Web Dashboard at http://<IP>:%d to authenticate your account.", args.port)
+        vehicle_client.initialize()
     except Exception as ex:
-        logger.warning("Tesla client initialization deferred: %s", ex)
-        tesla_client = TeslaFleetClient({})
+        logger.warning("Vehicle client initialization deferred: %s", ex)
 
     # Initialize Notifier
     notifier = WhatsAppNotifier(config.get("whatsapp", {}))
@@ -157,7 +124,7 @@ def main():
     charging_cfg = config.get("charging", {})
     controller = SolarChargingController(
         solaredge=solaredge_client,
-        tesla=tesla_client,
+        tesla=vehicle_client,
         notifier=notifier,
         config=charging_cfg
     )
@@ -178,7 +145,7 @@ def main():
         app = create_app(controller_ref=controller, config_path=args.config)
         logger.info("Web Dashboard listening on http://0.0.0.0:%d", args.port)
 
-        # Run web server (Werkzeug quiet logs)
+        # Werkzeug quiet logs
         log = logging.getLogger('werkzeug')
         log.setLevel(logging.WARNING)
 
@@ -187,7 +154,6 @@ def main():
         except (KeyboardInterrupt, SystemExit):
             pass
     else:
-        # If running headless without web server, wait on thread
         while not stop_requested:
             time.sleep(1)
 
