@@ -160,9 +160,9 @@ def create_app(controller_ref=None, config_path="config.yaml"):
             with open(config_path, "r", encoding="utf-8") as f:
                 cfg = yaml.safe_load(f) or {}
             tesla_cfg = cfg.get("tesla", {})
-            provider = tesla_cfg.get("provider", "fleet").lower()
+            provider = tesla_cfg.get("provider", "teslapy").lower()
 
-            if provider == "fleet" or tesla_cfg.get("fleet", {}).get("access_token") or tesla_cfg.get("fleet", {}).get("client_id"):
+            if provider == "fleet" and (tesla_cfg.get("fleet", {}).get("access_token") or tesla_cfg.get("fleet", {}).get("client_id")):
                 fleet_cfg = tesla_cfg.get("fleet", {})
                 client = TeslaFleetClient(fleet_cfg)
                 diag = client.test_connection()
@@ -194,9 +194,38 @@ def create_app(controller_ref=None, config_path="config.yaml"):
                             vehicles.append(f"{v.get('display_name')} ({v.get('vin')})")
                     except Exception:
                         pass
-                return jsonify({"provider": "teslapy", "authorized": authorized, "email": email, "vehicles": vehicles})
+                return jsonify({
+                    "provider": "teslapy",
+                    "authorized": authorized,
+                    "email": email,
+                    "vehicles": vehicles
+                })
         except Exception as e:
             return jsonify({"authorized": False, "error": str(e)})
+
+    @app.route("/api/tesla/set-provider", methods=["POST"])
+    def api_set_provider():
+        nonlocal controller_ref
+        data = request.get_json() or {}
+        provider = data.get("provider", "teslapy").lower()
+
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+        if "tesla" not in cfg:
+            cfg["tesla"] = {}
+        cfg["tesla"]["provider"] = provider
+        with open(config_path, "w", encoding="utf-8") as f:
+            yaml.dump(cfg, f, default_flow_style=False)
+
+        if controller_ref:
+            try:
+                controller_ref.tesla = create_tesla_client(cfg["tesla"])
+                controller_ref.tesla.initialize()
+            except Exception as e:
+                logger.warning("Provider switch initialize deferred: %s", e)
+
+        return jsonify({"success": True, "provider": provider})
+
 
     @app.route("/api/fleet/oauth-url", methods=["POST"])
     def api_fleet_oauth_url():
@@ -438,21 +467,29 @@ def create_app(controller_ref=None, config_path="config.yaml"):
                 t.fetch_token(authorization_response=redirect_url, state=state, code_verifier=alt_verifier)
 
             if t.authorized:
-                # Update config.yaml with email
+                # Update config.yaml with email and set provider to teslapy
                 with open(config_path, "r", encoding="utf-8") as f:
                     cfg = yaml.safe_load(f) or {}
                 if "tesla" not in cfg:
                     cfg["tesla"] = {}
+                cfg["tesla"]["provider"] = "teslapy"
                 cfg["tesla"]["email"] = email
                 with open(config_path, "w", encoding="utf-8") as f:
                     yaml.dump(cfg, f, default_flow_style=False)
 
-                # Reinitialize controller's tesla client
+                # Reinitialize controller's tesla client as TeslaController
                 if controller_ref:
-                    controller_ref.tesla.email = email
+                    controller_ref.tesla = TeslaController(email=email)
                     controller_ref.tesla.initialize()
 
-                return jsonify({"success": True})
+                vehicles = []
+                try:
+                    for v in t.vehicle_list():
+                        vehicles.append(f"{v.get('display_name')} (VIN: {v.get('vin')})")
+                except Exception:
+                    pass
+
+                return jsonify({"success": True, "vehicles": vehicles})
             else:
                 return jsonify({"success": False, "error": "Token exchange failed"}), 400
         except Exception as e:

@@ -1222,6 +1222,11 @@
     document.getElementById('pane-tesla-teslapy').style.display = (mode === 'teslapy') ? 'block' : 'none';
     document.getElementById('btn-sub-fleet').classList.toggle('active', mode === 'fleet');
     document.getElementById('btn-sub-teslapy').classList.toggle('active', mode === 'teslapy');
+    fetch('/api/tesla/set-provider', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: mode })
+    });
   }
 
   let fleetOAuth = { clientId: '', clientSecret: '', redirectUri: '', region: 'na' };
