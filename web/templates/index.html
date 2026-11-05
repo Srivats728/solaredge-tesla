@@ -723,18 +723,78 @@
 
       <div id="tesla-auth-detail" style="margin-bottom: 24px;"></div>
 
-      <!-- Segmented Sub-control for Fleet API vs TeslaPy -->
+      <!-- Segmented Sub-control for Quick Connect vs TeslaPy vs Fleet API -->
       <div class="segmented-control" style="margin-bottom: 20px;">
-        <button class="segment-btn active" id="btn-sub-fleet" onclick="switchTeslaMode('fleet')">Tesla Fleet API (Official)</button>
-        <button class="segment-btn" id="btn-sub-teslapy" onclick="switchTeslaMode('teslapy')">TeslaPy SSO</button>
+        <button class="segment-btn active" id="btn-sub-quick" onclick="switchTeslaMode('quick')">Quick Connect (Refresh Token)</button>
+        <button class="segment-btn" id="btn-sub-teslapy" onclick="switchTeslaMode('teslapy')">Tesla SSO Login</button>
+        <button class="segment-btn" id="btn-sub-fleet" onclick="switchTeslaMode('fleet')">Developer Fleet API</button>
       </div>
 
-      <!-- PANE A: TESLA FLEET API -->
-      <div id="pane-tesla-fleet">
+      <!-- PANE 1: QUICK CONNECT (REFRESH TOKEN) -->
+      <div id="pane-tesla-quick">
+        <div style="background: #161618; border: 1px solid var(--card-border); border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+          <div class="card-label" style="margin-bottom: 8px;">Recommended: Connect via Tesla Refresh Token</div>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px;">
+            The easiest and most reliable method for personal Tesla vehicles. No developer account, registered domain, or public key signing needed.
+          </p>
+
+          <div style="background: #111113; border: 1px solid #222226; border-radius: 6px; padding: 14px; margin-bottom: 18px; font-size: 0.76rem; color: var(--text-secondary); line-height: 1.6;">
+            <div style="color: var(--text-primary); font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.08em;">Quick Steps</div>
+            1. Open the free, open-source <strong>Tesla Auth</strong> app on your phone (iOS / Android) or PC/Mac (or any standard Tesla token generator).<br>
+            2. Sign in with your Tesla credentials and tap <strong>Copy Refresh Token</strong>.<br>
+            3. Paste the token below and click <strong>Connect Model 3</strong>.
+          </div>
+
+          <div class="field">
+            <label class="field-label">Tesla Refresh Token</label>
+            <input type="password" id="input-quick-token" class="field-input" placeholder="Paste your Tesla refresh token here...">
+            <div class="field-hint">Your token is stored locally and securely in config.yaml (never shared or transmitted to third parties).</div>
+          </div>
+
+          <div style="margin-top: 14px;">
+            <button class="btn btn-solid" id="btn-quick-connect" onclick="connectQuickToken(false)">Connect Model 3</button>
+          </div>
+
+          <div id="quick-token-feedback" style="display: none; margin-top: 16px; padding: 14px; border-radius: 6px; font-size: 0.8rem;"></div>
+        </div>
+      </div>
+
+      <!-- PANE 2: TESLAPY SSO -->
+      <div id="pane-tesla-teslapy" style="display: none;">
+        <div class="data-list" style="margin-bottom: 24px;">
+          <div class="field">
+            <label class="field-label">Tesla Account Email</label>
+            <input type="email" id="input-tesla-email" class="field-input" placeholder="user@example.com">
+          </div>
+          <div>
+            <button class="btn btn-subtle" onclick="beginTeslaAuth()">1. Generate Tesla Authorization Link</button>
+          </div>
+        </div>
+
+        <div id="tesla-auth-flow" style="display: none; background: #161618; border: 1px solid var(--card-border); border-radius: 8px; padding: 20px; margin-top: 16px;">
+          <div class="card-label" style="margin-bottom: 8px;">Step 1: Sign in via Tesla</div>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 14px;">
+            Click the link below to authenticate securely through Tesla's OAuth SSO.
+          </p>
+          <a id="tesla-link-btn" href="#" target="_blank" class="btn btn-solid" style="margin-bottom: 20px;">Open Tesla Login Page</a>
+
+          <div class="card-label" style="margin-bottom: 8px;">Step 2: Submit Callback URL</div>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px;">
+            After logging in, your browser will reach a page reading "Page Not Found" (404). Copy the entire URL from your browser's address bar and paste it below.
+          </p>
+          <div class="field">
+            <input type="text" id="input-tesla-callback" class="field-input" placeholder="https://auth.tesla.com/void/callback?code=...">
+          </div>
+          <button class="btn btn-solid" onclick="finishTeslaAuth()">2. Complete Authorization</button>
+        </div>
+      </div>
+
+      <!-- PANE 3: TESLA FLEET API -->
+      <div id="pane-tesla-fleet" style="display: none;">
         <div style="background: #161618; border: 1px solid var(--card-border); border-radius: 8px; padding: 20px; margin-bottom: 20px;">
           <div class="card-label" style="margin-bottom: 8px;">Official Tesla Fleet API (Client ID & Secret)</div>
           <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px;">
-            Enter the <strong>Client ID</strong> and <strong>Client Secret</strong> from your Tesla Developer app. The system will guide you through signing in and automatically retrieve your Bearer access token.
+            For registered developer accounts with domain verification. Enter the <strong>Client ID</strong> and <strong>Client Secret</strong> from your Tesla Developer app.
           </p>
 
           <div class="form-row">
@@ -796,7 +856,7 @@
             </div>
           </div>
 
-          <details id="advanced-token-details" style="margin-top: 20px; font-size: 0.75rem; color: var(--text-muted);" open>
+          <details id="advanced-token-details" style="margin-top: 20px; font-size: 0.75rem; color: var(--text-muted);">
             <summary style="cursor: pointer; padding: 4px 0; font-weight: 600; color: var(--text-secondary);">Direct Bearer Token Access</summary>
             <div style="margin-top: 12px; padding: 16px; background: #151518; border-radius: 8px; border: 1px solid var(--card-border);">
               <div class="field">
@@ -810,36 +870,6 @@
               <div id="direct-token-log" class="terminal" style="height: 140px; margin-top: 12px; font-size: 0.75rem; display: none;"></div>
             </div>
           </details>
-        </div>
-      </div>
-
-      <!-- PANE B: TESLAPY SSO -->
-      <div id="pane-tesla-teslapy" style="display: none;">
-        <div class="data-list" style="margin-bottom: 24px;">
-          <div class="field">
-            <label class="field-label">Tesla Account Email</label>
-            <input type="email" id="input-tesla-email" class="field-input" placeholder="user@example.com">
-          </div>
-          <div>
-            <button class="btn btn-subtle" onclick="beginTeslaAuth()">1. Generate Tesla Authorization Link</button>
-          </div>
-        </div>
-
-        <div id="tesla-auth-flow" style="display: none; background: #161618; border: 1px solid var(--card-border); border-radius: 8px; padding: 20px; margin-top: 16px;">
-          <div class="card-label" style="margin-bottom: 8px;">Step 1: Sign in via Tesla</div>
-          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 14px;">
-            Click the link below to authenticate securely through Tesla's OAuth SSO.
-          </p>
-          <a id="tesla-link-btn" href="#" target="_blank" class="btn btn-solid" style="margin-bottom: 20px;">Open Tesla Login Page</a>
-
-          <div class="card-label" style="margin-bottom: 8px;">Step 2: Submit Callback URL</div>
-          <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px;">
-            After logging in, your browser will reach a page reading "Page Not Found" (404). Copy the entire URL from your browser's address bar and paste it below.
-          </p>
-          <div class="field">
-            <input type="text" id="input-tesla-callback" class="field-input" placeholder="https://auth.tesla.com/void/callback?code=...">
-          </div>
-          <button class="btn btn-solid" onclick="finishTeslaAuth()">2. Complete Authorization</button>
         </div>
       </div>
     </div>
@@ -948,54 +978,68 @@
     <div class="wizard-pane" id="wiz-pane-3">
       <div class="wizard-title">Tesla Vehicle Access</div>
       <div class="wizard-desc">
-        Connect your vehicle using your official Tesla Developer Client ID & Secret, or via direct account sign-in.
+        Connect your Model 3 using the easiest method below.
       </div>
 
-      <div class="form-section-title">Option A: Tesla Developer App (Client ID & Secret)</div>
-      <div class="form-row">
+      <div class="form-section-title">Option A: Quick Connect (Tesla Refresh Token) - Recommended</div>
+      <div style="background: #161618; border: 1px solid var(--card-border); border-radius: 8px; padding: 16px; margin-bottom: 18px;">
+        <p style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5;">
+          Get your token in seconds via the free, open-source <strong>Tesla Auth</strong> app (iOS/Android/PC/Mac) or any token helper, paste it below, and connect instantly.
+        </p>
         <div class="field">
-          <label class="field-label">Client ID</label>
-          <input type="text" id="wiz-fleet-client-id" class="field-input" placeholder="Paste Client ID">
+          <label class="field-label">Tesla Refresh Token</label>
+          <input type="password" id="wiz-quick-token" class="field-input" placeholder="Paste Tesla refresh token">
         </div>
-        <div class="field">
-          <label class="field-label">Client Secret</label>
-          <input type="password" id="wiz-fleet-client-secret" class="field-input" placeholder="Paste Client Secret">
-        </div>
-      </div>
-      <div style="margin-bottom: 14px;">
-        <button class="btn btn-solid" onclick="wizStartFleetOAuth()">1. Generate Sign-In Link</button>
+        <button class="btn btn-solid" onclick="connectQuickToken(true)">Connect Model 3</button>
+        <div id="wiz-quick-feedback" style="display: none; margin-top: 12px; padding: 10px; border-radius: 6px; font-size: 0.8rem;"></div>
       </div>
 
-      <div id="wiz-fleet-step2" style="display: none; background: #1a1a1c; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-        <div style="margin-bottom: 12px;">
-          <a id="wiz-fleet-oauth-link" href="#" target="_blank" class="btn btn-solid">Sign In With Tesla Developer App</a>
-        </div>
+      <div class="form-section-title">Option B: Tesla SSO Web Login (TeslaPy)</div>
+      <div style="background: #161618; border: 1px solid var(--card-border); border-radius: 8px; padding: 16px; margin-bottom: 18px;">
         <div class="field">
-          <label class="field-label">Paste Redirect URL</label>
-          <input type="text" id="wiz-fleet-callback" class="field-input" placeholder="https://auth.tesla.com/void/callback?code=...">
+          <label class="field-label">Tesla Account Email</label>
+          <input type="email" id="wiz-tesla-email" class="field-input" placeholder="user@example.com">
         </div>
-        <button class="btn btn-solid" onclick="wizCompleteFleetOAuth()">2. Complete Fleet Authorization</button>
-      </div>
-      <div id="wiz-tesla-msg" style="font-size: 0.8rem; color: var(--text-primary); margin-top: 8px; margin-bottom: 16px;"></div>
-
-      <div class="form-section-title">Option B: Tesla Account Login (TeslaPy)</div>
-      <div class="field">
-        <label class="field-label">Tesla Email Address</label>
-        <input type="email" id="wiz-tesla-email" class="field-input" placeholder="user@example.com">
-      </div>
-      <div style="margin-bottom: 16px;">
         <button class="btn btn-subtle" onclick="wizardGenerateTeslaLink()">Generate Tesla Login Link</button>
-      </div>
-      <div id="wiz-tesla-flow" style="display: none; background: #1a1a1c; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-        <div style="margin-bottom: 12px;">
-          <a id="wiz-tesla-link" href="#" target="_blank" class="btn btn-solid">Sign In With Tesla</a>
+        <div id="wiz-tesla-flow" style="display: none; background: #1a1a1c; border-radius: 8px; padding: 14px; margin-top: 14px;">
+          <div style="margin-bottom: 10px;">
+            <a id="wiz-tesla-link" href="#" target="_blank" class="btn btn-solid">Sign In With Tesla</a>
+          </div>
+          <div class="field">
+            <label class="field-label">Paste 'Page Not Found' Redirect URL</label>
+            <input type="text" id="wiz-tesla-callback" class="field-input" placeholder="https://auth.tesla.com/void/callback?code=...">
+          </div>
+          <button class="btn btn-solid" onclick="wizardCompleteTeslaAuth()">Verify & Save Credentials</button>
         </div>
-        <div class="field">
-          <label class="field-label">Paste 'Page Not Found' Redirect URL</label>
-          <input type="text" id="wiz-tesla-callback" class="field-input" placeholder="https://auth.tesla.com/void/callback?code=...">
-        </div>
-        <button class="btn btn-solid" onclick="wizardCompleteTeslaAuth()">Verify & Save Credentials</button>
       </div>
+
+      <details style="margin-bottom: 20px;">
+        <summary style="cursor: pointer; font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; padding: 4px 0;">Option C: Tesla Developer App (Fleet API)</summary>
+        <div style="background: #161618; border: 1px solid var(--card-border); border-radius: 8px; padding: 16px; margin-top: 12px;">
+          <div class="form-row">
+            <div class="field">
+              <label class="field-label">Client ID</label>
+              <input type="text" id="wiz-fleet-client-id" class="field-input" placeholder="Paste Client ID">
+            </div>
+            <div class="field">
+              <label class="field-label">Client Secret</label>
+              <input type="password" id="wiz-fleet-client-secret" class="field-input" placeholder="Paste Client Secret">
+            </div>
+          </div>
+          <button class="btn btn-solid" onclick="wizStartFleetOAuth()">Generate Sign-In Link</button>
+          <div id="wiz-fleet-step2" style="display: none; background: #1a1a1c; border-radius: 8px; padding: 14px; margin-top: 14px;">
+            <div style="margin-bottom: 10px;">
+              <a id="wiz-fleet-oauth-link" href="#" target="_blank" class="btn btn-solid">Sign In With Tesla Developer App</a>
+            </div>
+            <div class="field">
+              <label class="field-label">Paste Redirect URL</label>
+              <input type="text" id="wiz-fleet-callback" class="field-input" placeholder="https://auth.tesla.com/void/callback?code=...">
+            </div>
+            <button class="btn btn-solid" onclick="wizCompleteFleetOAuth()">Complete Fleet Authorization</button>
+          </div>
+        </div>
+      </details>
+
       <div class="wizard-footer">
         <button class="btn btn-subtle" onclick="openSetupWizard(2)">Back</button>
         <button class="btn btn-solid" onclick="openSetupWizard(4)">Next: Review</button>
@@ -1218,15 +1262,57 @@
 
   // Tesla Mode Switching
   function switchTeslaMode(mode) {
-    document.getElementById('pane-tesla-fleet').style.display = (mode === 'fleet') ? 'block' : 'none';
+    document.getElementById('pane-tesla-quick').style.display = (mode === 'quick') ? 'block' : 'none';
     document.getElementById('pane-tesla-teslapy').style.display = (mode === 'teslapy') ? 'block' : 'none';
-    document.getElementById('btn-sub-fleet').classList.toggle('active', mode === 'fleet');
+    document.getElementById('pane-tesla-fleet').style.display = (mode === 'fleet') ? 'block' : 'none';
+    document.getElementById('btn-sub-quick').classList.toggle('active', mode === 'quick');
     document.getElementById('btn-sub-teslapy').classList.toggle('active', mode === 'teslapy');
-    fetch('/api/tesla/set-provider', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider: mode })
-    });
+    document.getElementById('btn-sub-fleet').classList.toggle('active', mode === 'fleet');
+  }
+
+  async function connectQuickToken(isWizard = false) {
+    const inputId = isWizard ? 'wiz-quick-token' : 'input-quick-token';
+    const feedbackId = isWizard ? 'wiz-quick-feedback' : 'quick-token-feedback';
+    const token = document.getElementById(inputId).value.trim();
+    const feedback = document.getElementById(feedbackId);
+
+    if (!token) {
+      alert('Please paste your Tesla refresh token.');
+      return;
+    }
+
+    feedback.style.display = 'block';
+    feedback.style.background = '#1a1a1c';
+    feedback.style.color = 'var(--text-secondary)';
+    feedback.textContent = 'Connecting to Tesla Owner API...';
+
+    try {
+      const res = await fetch('/api/tesla/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        feedback.style.background = '#0d2818';
+        feedback.style.color = '#30d158';
+        const vList = data.vehicles && data.vehicles.length ? data.vehicles.join(', ') : 'Model 3';
+        feedback.textContent = 'Connected successfully to ' + vList;
+        showBanner('Connected successfully to ' + vList);
+        checkTeslaAccess();
+      } else {
+        feedback.style.background = '#2c1517';
+        feedback.style.color = '#ff453a';
+        feedback.textContent = 'Connection failed: ' + (data.error || 'Invalid token');
+        showBanner(data.error || 'Token connection failed');
+      }
+    } catch (e) {
+      feedback.style.background = '#2c1517';
+      feedback.style.color = '#ff453a';
+      feedback.textContent = 'Error: ' + e;
+      showBanner('Error: ' + e);
+    }
   }
 
   let fleetOAuth = { clientId: '', clientSecret: '', redirectUri: '', region: 'na' };
@@ -1352,19 +1438,14 @@
       if (data.authorized) {
         badge.textContent = 'Authorized';
         badge.classList.add('active');
-        const providerName = data.provider === 'fleet' ? 'Official Tesla Fleet API' : 'TeslaPy SSO';
+        const providerName = (data.provider === 'fleet' && data.client_id === 'ownerapi') ? 'Tesla Owner API (Quick Connect)' : (data.provider === 'fleet' ? 'Tesla Fleet API' : 'TeslaPy SSO');
         detail.innerHTML = `<div style="font-size: 0.9rem; font-weight: 500;">Connected via ${providerName}</div>
           <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">Vehicles: ${data.vehicles && data.vehicles.length ? data.vehicles.join(', ') : 'Model 3'}</div>`;
-        if (data.provider === 'fleet') {
-          switchTeslaMode('fleet');
-        } else {
-          switchTeslaMode('teslapy');
-        }
       } else {
         badge.textContent = 'Not Authorized';
         badge.classList.remove('active');
         let diagText = data.diagnostic_message ? `<div style="font-size: 0.75rem; color: #ff453a; margin-top: 6px;">Tesla response: ${data.diagnostic_message}</div>` : '';
-        detail.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-secondary);">Authorization required. Exchange tokens below or paste your Bearer token in the Direct Token section.</div>${diagText}`;
+        detail.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-secondary);">Authorization required. Connect using your Refresh Token above or use Tesla SSO Login.</div>${diagText}`;
       }
       if (data.masked_token && !document.getElementById('input-fleet-token').value) {
         document.getElementById('input-fleet-token').placeholder = `Current token: ${data.masked_token}`;

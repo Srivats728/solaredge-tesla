@@ -162,7 +162,7 @@ def create_app(controller_ref=None, config_path="config.yaml"):
             tesla_cfg = cfg.get("tesla", {})
             provider = tesla_cfg.get("provider", "teslapy").lower()
 
-            if provider == "fleet" and (tesla_cfg.get("fleet", {}).get("access_token") or tesla_cfg.get("fleet", {}).get("client_id")):
+            if provider == "fleet" and (tesla_cfg.get("fleet", {}).get("access_token") or tesla_cfg.get("fleet", {}).get("client_id") or tesla_cfg.get("fleet", {}).get("refresh_token")):
                 fleet_cfg = tesla_cfg.get("fleet", {})
                 client = TeslaFleetClient(fleet_cfg)
                 diag = client.test_connection()
@@ -172,11 +172,12 @@ def create_app(controller_ref=None, config_path="config.yaml"):
                         controller_ref.tesla = client
                 return jsonify({
                     "provider": "fleet",
+                    "client_id": fleet_cfg.get("client_id", ""),
                     "authorized": diag.get("success", False),
                     "vehicles": diag.get("vehicles", []),
                     "region": fleet_cfg.get("region", "na"),
-                    "has_token": bool(fleet_cfg.get("access_token")),
-                    "masked_token": client._redact_token(fleet_cfg.get("access_token")),
+                    "has_token": bool(fleet_cfg.get("access_token") or fleet_cfg.get("refresh_token")),
+                    "masked_token": client._redact_token(fleet_cfg.get("access_token") or fleet_cfg.get("refresh_token")),
                     "diagnostic_message": diag.get("message"),
                     "diagnostic_log": diag.get("log")
                 })
@@ -202,6 +203,141 @@ def create_app(controller_ref=None, config_path="config.yaml"):
                 })
         except Exception as e:
             return jsonify({"authorized": False, "error": str(e)})
+
+    @app.route("/api/tesla/token", methods=["POST"])
+    def api_tesla_token():
+        nonlocal controller_ref
+        data = request.get_json() or {}
+        token = data.get("token", "").strip()
+
+        if not token:
+            return jsonify({"success": False, "error": "Token is required"}), 400
+
+        access_token = None
+        new_refresh_token = token
+
+        # Step A: Attempt refresh token exchange with Tesla ownerapi client
+        try:
+            logger.info("Attempting to exchange token with Tesla OAuth ownerapi...")
+            resp = requests.post(
+                "https://auth.tesla.com/oauth2/v3/token",
+                json={
+                    "grant_type": "refresh_token",
+                    "client_id": "ownerapi",
+                    "refresh_token": token,
+                    "scope": "openid email offline_access"
+                },
+                timeout=15
+            )
+            if resp.status_code == 200:
+                tdata = resp.json()
+                access_token = tdata.get("access_token")
+                new_refresh_token = tdata.get("refresh_token", token)
+                logger.info("Successfully refreshed token via ownerapi.")
+            else:
+                logger.info("ownerapi exchange returned %d, treating token directly as access token.", resp.status_code)
+                access_token = token
+        except Exception as ex:
+            logger.warning("Token exchange exception: %s. Using token directly.", ex)
+            access_token = token
+
+        # Step B: Test with Tesla Owner API
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+            "User-Agent": "Tesla/4.30.0"
+        }
+
+        vehicles = []
+        success = False
+        error_msg = ""
+
+        try:
+            url = "https://owner-api.teslamotors.com/api/1/vehicles"
+            v_resp = requests.get(url, headers=headers, timeout=15)
+            if v_resp.status_code == 200:
+                v_data = v_resp.json().get("response", [])
+                vehicles = [f"{v.get('display_name')} (VIN: {v.get('vin')})" for v in v_data]
+                success = True
+            else:
+                error_msg = f"Tesla returned HTTP {v_resp.status_code}: {v_resp.text}"
+        except Exception as ex:
+            error_msg = f"Connection error: {ex}"
+
+        if success:
+            user_email = data.get("email", "").strip()
+            if not user_email:
+                try:
+                    u_resp = requests.get(
+                        "https://auth.tesla.com/oauth2/v3/userinfo",
+                        headers={"Authorization": f"Bearer {access_token}"},
+                        timeout=5
+                    )
+                    if u_resp.status_code == 200:
+                        user_email = u_resp.json().get("email", "")
+                except Exception:
+                    pass
+
+            with open(config_path, "r", encoding="utf-8") as f:
+                cfg = yaml.safe_load(f) or {}
+
+            if "tesla" not in cfg:
+                cfg["tesla"] = {}
+            if user_email:
+                cfg["tesla"]["email"] = user_email
+            cfg["tesla"]["provider"] = "fleet"
+            cfg["tesla"]["fleet"] = {
+                "access_token": access_token,
+                "refresh_token": new_refresh_token,
+                "client_id": "ownerapi",
+                "region": "na"
+            }
+            with open(config_path, "w", encoding="utf-8") as f:
+                yaml.dump(cfg, f, default_flow_style=False)
+
+            try:
+                os.chmod(config_path, 0o600)
+            except Exception:
+                pass
+
+            # Sync cache.json for teslapy interoperability
+            if user_email and new_refresh_token:
+                try:
+                    cache_data = {}
+                    if os.path.exists("cache.json"):
+                        with open("cache.json", "r", encoding="utf-8") as cf:
+                            cache_data = json.load(cf) or {}
+                    cache_data[user_email] = {
+                        "sso": {
+                            "access_token": access_token,
+                            "refresh_token": new_refresh_token,
+                            "token_type": "Bearer",
+                            "expires_in": 28800
+                        }
+                    }
+                    with open("cache.json", "w", encoding="utf-8") as cf:
+                        json.dump(cache_data, cf, indent=2)
+                    try:
+                        os.chmod("cache.json", 0o600)
+                    except Exception:
+                        pass
+                except Exception as ex:
+                    logger.warning("Could not sync cache.json: %s", ex)
+
+            if controller_ref:
+                controller_ref.tesla = TeslaFleetClient(cfg["tesla"]["fleet"])
+                controller_ref.tesla.initialize()
+
+            return jsonify({
+                "success": True,
+                "message": "Connected successfully to Tesla Model 3!",
+                "vehicles": vehicles
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": error_msg or "Failed to connect to Tesla vehicle."
+            }), 400
 
     @app.route("/api/tesla/set-provider", methods=["POST"])
     def api_set_provider():

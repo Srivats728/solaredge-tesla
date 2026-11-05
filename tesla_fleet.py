@@ -37,7 +37,11 @@ class TeslaFleetClient:
         self.vehicle_info: Optional[Dict[str, Any]] = None
         self.last_error: Optional[str] = None
         self.last_status_code: Optional[int] = None
-        self.active_base_url: str = self.base_url
+        # Use Owner API directly when using standard ownerapi client (e.g. personal refresh token)
+        if self.client_id == "ownerapi" or not self.client_secret:
+            self.active_base_url: str = OWNER_API_BASE
+        else:
+            self.active_base_url: str = self.base_url
         self._token_expires_at: float = 0.0
         self._last_known_state: Optional[Dict[str, Any]] = None
         self._last_wake_attempt: float = 0.0
@@ -68,6 +72,8 @@ class TeslaFleetClient:
             payload["client_id"] = self.client_id
         if self.client_secret:
             payload["client_secret"] = self.client_secret
+        if self.client_id == "ownerapi":
+            payload["scope"] = "openid email offline_access"
 
         try:
             resp = requests.post(AUTH_URL, json=payload, timeout=15)
@@ -78,8 +84,24 @@ class TeslaFleetClient:
                     self.refresh_token = data.get("refresh_token")
                 expires_in = data.get("expires_in", 28800)
                 self._token_expires_at = time.time() + expires_in - 300
-                logger.info("Successfully refreshed Fleet API token (valid for %d seconds).", expires_in)
+                logger.info("Successfully refreshed token (valid for %d seconds).", expires_in)
                 self.last_error = None
+
+                # Persist refreshed token to config.yaml if present
+                try:
+                    import yaml, os
+                    if os.path.exists("config.yaml"):
+                        with open("config.yaml", "r", encoding="utf-8") as f:
+                            cfg = yaml.safe_load(f) or {}
+                        if "tesla" in cfg and "fleet" in cfg["tesla"]:
+                            cfg["tesla"]["fleet"]["access_token"] = self.access_token
+                            if self.refresh_token:
+                                cfg["tesla"]["fleet"]["refresh_token"] = self.refresh_token
+                            with open("config.yaml", "w", encoding="utf-8") as f:
+                                yaml.dump(cfg, f, default_flow_style=False)
+                except Exception:
+                    pass
+
                 return True
             else:
                 self.last_error = f"Token refresh failed ({resp.status_code}): {resp.text}"
@@ -97,7 +119,7 @@ class TeslaFleetClient:
         return {
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json",
-            "User-Agent": "Tesla-Solar-Optimizer/2.0"
+            "User-Agent": "Tesla/4.30.0"
         }
 
     def test_connection(self) -> Dict[str, Any]:
@@ -110,20 +132,26 @@ class TeslaFleetClient:
                 "success": False,
                 "status_code": 400,
                 "message": "No access_token or refresh_token is configured.",
-                "details": "Enter your Client ID and Client Secret or paste a Bearer token."
+                "details": "Paste your Tesla Refresh Token in the Quick Connect box or sign in."
             }
 
         headers = {
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json",
-            "User-Agent": "Tesla-Solar-Optimizer/2.0"
+            "User-Agent": "Tesla/4.30.0"
         }
 
-        # Try fleet-api endpoint first, then owner-api fallback
-        candidate_urls = [
-            (self.base_url, "Official Fleet API (" + self.region.upper() + ")"),
-            (OWNER_API_BASE, "Tesla Owner API Fallback")
-        ]
+        # Prioritize Owner API for personal refresh tokens, Fleet API for registered developer apps
+        if self.client_id == "ownerapi" or not self.client_secret:
+            candidate_urls = [
+                (OWNER_API_BASE, "Tesla Owner API"),
+                (self.base_url, "Official Fleet API (" + self.region.upper() + ")")
+            ]
+        else:
+            candidate_urls = [
+                (self.base_url, "Official Fleet API (" + self.region.upper() + ")"),
+                (OWNER_API_BASE, "Tesla Owner API Fallback")
+            ]
 
         attempt_logs = []
         for base, name in candidate_urls:

@@ -16,7 +16,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 echo -e "${CYAN}===================================================================${NC}"
-echo -e "${CYAN}   ☀️🚗 SolarEdge ↔ Tesla Optimizer: Proxmox Turnkey Installer   ${NC}"
+echo -e "${CYAN}   SolarEdge / Tesla Optimizer: Proxmox Turnkey Installer        ${NC}"
 echo -e "${CYAN}===================================================================${NC}"
 
 # Check if running inside an existing container or on Proxmox VE Host
@@ -36,9 +36,9 @@ if [ ! -d "/etc/pve" ]; then
         
         MY_IP=$(ip -4 addr show eth0 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -n 1 || hostname -I | awk '{print $1}')
         echo ""
-        echo -e "${GREEN}🎉 Installation Complete!${NC}"
+        echo -e "${GREEN}Installation Complete!${NC}"
         echo -e "${GREEN}Open the Web Dashboard in your browser:${NC}"
-        echo -e "${CYAN}👉 http://${MY_IP}:8080${NC}"
+        echo -e "${CYAN}URL: http://${MY_IP}:8080${NC}"
         exit 0
     else
         echo -e "${RED}Error: Neither Proxmox host nor Alpine Linux environment detected.${NC}"
@@ -131,13 +131,13 @@ done
 
 echo ""
 echo -e "${GREEN}===================================================================${NC}"
-echo -e "${GREEN}   🎉 Installation Complete! Container ID: ${CT_ID}               ${NC}"
+echo -e "${GREEN}   Installation Complete! Container ID: ${CT_ID}                  ${NC}"
 echo -e "${GREEN}===================================================================${NC}"
 echo ""
 if [ -n "$CT_IP" ]; then
     echo -e "Open the ${CYAN}Web Dashboard${NC} in your browser to complete setup:"
     echo ""
-    echo -e "   👉 ${GREEN}http://${CT_IP}:8080${NC}"
+    echo -e "   URL: ${GREEN}http://${CT_IP}:8080${NC}"
     echo ""
 else
     echo -e "Container started! Check your router DHCP or run:"

@@ -14,15 +14,15 @@ echo " SolarEdge - Tesla Optimizer: Alpine LXC Setup"
 echo "=========================================================="
 
 if [ "$(id -u)" -ne 0 ]; then
-    echo "❌ Error: This script must be run as root inside the Alpine LXC."
+    echo "[ERROR] This script must be run as root inside the Alpine LXC."
     exit 1
 fi
 
-echo "📦 Step 1: Updating package repository and installing dependencies..."
+echo "[1/5] Updating package repository and installing dependencies..."
 apk update
 apk add --no-cache python3 py3-pip py3-virtualenv git gcc musl-dev libffi-dev openssl-dev tzdata ca-certificates
 
-echo "📂 Step 2: Preparing directory structure at $INSTALL_DIR..."
+echo "[2/5] Preparing directory structure at $INSTALL_DIR..."
 mkdir -p "$INSTALL_DIR"
 
 # Copy files from script's parent directory if running from cloned repository
@@ -34,18 +34,18 @@ fi
 
 cd "$INSTALL_DIR"
 
-echo "🐍 Step 3: Creating Python virtual environment..."
+echo "[3/5] Creating Python virtual environment..."
 python3 -m venv "$INSTALL_DIR/venv"
 "$INSTALL_DIR/venv/bin/pip" install --upgrade pip
 "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt"
 
-echo "⚙️ Step 4: Setting up configuration..."
+echo "[4/5] Setting up configuration..."
 if [ ! -f "$INSTALL_DIR/config.yaml" ]; then
     cp "$INSTALL_DIR/config.example.yaml" "$INSTALL_DIR/config.yaml"
     echo "Created $INSTALL_DIR/config.yaml from example."
 fi
 
-echo "🔧 Step 5: Installing and starting OpenRC background service..."
+echo "[5/5] Installing and starting OpenRC background service..."
 cp "$INSTALL_DIR/deploy/solaredge-tesla.initd" "/etc/init.d/$SERVICE_NAME"
 chmod +x "/etc/init.d/$SERVICE_NAME"
 rc-update add "$SERVICE_NAME" default || true
@@ -55,11 +55,11 @@ MY_IP=$(ip -4 addr show eth0 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' |
 
 echo ""
 echo "=========================================================="
-echo " 🎉 Installation Complete & Web Dashboard Started!"
+echo " Installation Complete & Web Dashboard Started!"
 echo "=========================================================="
 echo ""
 echo "Open the Web Dashboard in your browser:"
-echo "   👉 http://${MY_IP}:8080"
+echo "   URL: http://${MY_IP}:8080"
 echo ""
 echo "From the web dashboard you can:"
 echo " - View live SolarEdge generation & Tesla charging status"

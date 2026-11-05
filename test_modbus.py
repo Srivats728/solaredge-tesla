@@ -38,7 +38,7 @@ def main():
 
     client = SolarEdgeClient(host=host, port=port, unit_id=unit_id, timeout=6)
     if not client.connect():
-        print("\n❌ Connection FAILED!")
+        print("\n[FAILED] Connection FAILED!")
         print("Troubleshooting checklist:")
         print(f" 1. Can you ping {host} from this machine? ('ping {host}')")
         print(f" 2. Is Modbus TCP enabled in your SolarEdge inverter settings?")
@@ -48,13 +48,13 @@ def main():
         print("    monitoring system (Home Assistant, etc.) is holding the connection open.")
         sys.exit(1)
 
-    print("✅ Connected to Modbus TCP server successfully!")
+    print("[OK] Connected to Modbus TCP server successfully!")
     print(f"SunSpec Base Address: {client.base_address}")
     print("\nReading inverter telemetry...")
 
     data = client.read_generation()
     if not data.get("connected"):
-        print("❌ Could not read SunSpec registers. Check Unit ID (typically 1).")
+        print("[FAILED] Could not read SunSpec registers. Check Unit ID (typically 1).")
         client.close()
         sys.exit(1)
 
@@ -72,7 +72,7 @@ def main():
     if power_w == 0.0 and status_code == 2:
         print("\nNote: Inverter is currently in SLEEPING mode (normal at night or very low light).")
     elif power_w > 0:
-        print("\n☀️ Solar production detected! Data reading is verified and operational.")
+        print("\nSolar production detected! Data reading is verified and operational.")
 
     client.close()
 
