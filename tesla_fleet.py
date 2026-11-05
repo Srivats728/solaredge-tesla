@@ -42,6 +42,12 @@ class TeslaFleetClient:
         self._last_known_state: Optional[Dict[str, Any]] = None
         self._last_wake_attempt: float = 0.0
 
+    @property
+    def vehicle(self):
+        """Compatibility property for vehicle info."""
+        return self.vehicle_info
+
+
     def _redact_token(self, token: Optional[str]) -> str:
         if not token or len(token) < 12:
             return "[empty]"

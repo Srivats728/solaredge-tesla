@@ -139,12 +139,16 @@ def main():
         timeout=se_cfg.get("timeout", 5)
     )
 
-    # Initialize Tesla controller (Non-fatal if not yet authorized so Web UI can load!)
+    # Initialize Tesla controller (Non-fatal so Web Dashboard always starts!)
     tesla_cfg = config.get("tesla", {})
-    tesla_client = create_tesla_client(tesla_cfg)
-    if not tesla_client.initialize():
-        logger.warning("Tesla account is not yet authorized.")
-        logger.warning("Open the Web Dashboard at http://<IP>:%d to authenticate your account.", args.port)
+    try:
+        tesla_client = create_tesla_client(tesla_cfg)
+        if not tesla_client.initialize():
+            logger.warning("Tesla account is not yet authorized.")
+            logger.warning("Open the Web Dashboard at http://<IP>:%d to authenticate your account.", args.port)
+    except Exception as ex:
+        logger.warning("Tesla client initialization deferred: %s", ex)
+        tesla_client = TeslaFleetClient({})
 
     # Initialize Notifier
     notifier = WhatsAppNotifier(config.get("whatsapp", {}))

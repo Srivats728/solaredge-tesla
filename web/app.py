@@ -377,13 +377,6 @@ def create_app(controller_ref=None, config_path="config.yaml"):
                 "error": diag.get("message"),
                 "diagnostic_log": diag.get("log")
             }), 400
-                "vehicles": vehicles
-            })
-        else:
-            return jsonify({
-                "success": False,
-                "error": "Could not connect to Tesla Fleet API. Verify your access token and region."
-            }), 400
 
     @app.route("/api/tesla/auth-url", methods=["POST"])
     def api_tesla_auth_url():
