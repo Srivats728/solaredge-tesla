@@ -244,6 +244,7 @@
       display: flex;
       gap: 12px;
       margin-top: 20px;
+      flex-wrap: wrap;
     }
     .btn {
       padding: 10px 18px;
@@ -283,7 +284,7 @@
       font-size: 0.72rem;
       color: #999999;
       white-space: pre-wrap;
-      max-height: 160px;
+      max-height: 180px;
       overflow-y: auto;
       display: none;
     }
@@ -402,44 +403,81 @@
       <!-- Vehicle Setup Panel -->
       <div class="panel-card">
         <div class="panel-title">
-          <span>Vehicle Integration</span>
-          <span style="font-size:0.7rem; color:var(--text-secondary);" id="provider-badge">TESSIE</span>
+          <span>Vehicle Integration (100% Free)</span>
+          <span style="font-size:0.7rem; color:var(--text-secondary);" id="provider-badge">FLEET API</span>
         </div>
 
         <div class="form-group">
           <label class="form-label">Connection Method</label>
           <select class="form-select" id="cfg-provider" onchange="onProviderChange()">
-            <option value="tessie">Tessie API (Recommended - 1 Key Setup)</option>
-            <option value="homeassistant">Home Assistant (Local LAN)</option>
-            <option value="fleet">Tesla Fleet API (Developer Account)</option>
+            <option value="fleet">Tesla Fleet API (Cloud - 100% Free Developer Tier)</option>
+            <option value="ble">Bluetooth Low Energy (Local - 100% Offline, Zero Cloud)</option>
+            <option value="homeassistant">Home Assistant (Local LAN Direct Bridge)</option>
             <option value="simulator">Built-in Simulator (Local Testing)</option>
           </select>
         </div>
 
-        <!-- Tessie Form -->
-        <div id="form-tessie">
-          <div class="form-group">
-            <label class="form-label">Tessie API Key</label>
-            <input type="password" class="form-input" id="cfg-tessie-key" placeholder="Enter API key from dash.tessie.com">
-            <div class="form-help">
-              Recommended for personal Teslas. Obtain your key at <strong>dash.tessie.com/settings/api</strong>. Zero developer account or domain registration required.
-            </div>
+        <!-- Fleet API Form -->
+        <div id="form-fleet">
+          <div class="form-help" style="margin-bottom:12px; padding:10px; background:#161616; border-radius:6px; border:1px solid #222;">
+            100% Free: Uses Tesla's official $16/month developer credits. Commands are sent directly to the car's onboard computer over LTE/Wi-Fi (no smart plug needed).
           </div>
           <div class="form-group">
-            <label class="form-label">Vehicle VIN (Optional)</label>
-            <input type="text" class="form-input" id="cfg-tessie-vin" placeholder="Leave empty for auto-discovery">
+            <label class="form-label">Client ID</label>
+            <input type="text" class="form-input" id="cfg-fleet-id" placeholder="Your Tesla Developer Client ID">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Client Secret</label>
+            <input type="password" class="form-input" id="cfg-fleet-secret" placeholder="Your Tesla Developer Client Secret">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Refresh Token / Access Token</label>
+            <input type="password" class="form-input" id="cfg-fleet-refresh" placeholder="Bearer or refresh token">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Domain for Public Key</label>
+            <input type="text" class="form-input" id="cfg-fleet-domain" value="srivats728.github.io" placeholder="srivats728.github.io or fleetkey.cc">
+            <div class="form-help">
+              Use your free GitHub Pages domain (srivats728.github.io) or fleetkey.cc. Click below to register and clear HTTP 412.
+            </div>
+          </div>
+          <div class="btn-row" style="margin-top:8px;">
+            <button class="btn btn-secondary" type="button" onclick="generateKeys()">Generate Keys</button>
+            <button class="btn btn-secondary" type="button" onclick="registerPartner()">Register Partner Domain</button>
+            <a id="btn-enroll-key" href="https://tesla.com/_ak/srivats728.github.io" target="_blank" class="btn btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center;">Pair Key in App</a>
+          </div>
+        </div>
+
+        <!-- BLE Form -->
+        <div id="form-ble" style="display:none;">
+          <div class="form-help" style="margin-bottom:12px; padding:10px; background:#161616; border-radius:6px; border:1px solid #222;">
+            100% Offline & Free: Commands vehicle directly over Bluetooth Low Energy using Tesla's official open-source tool (tesla-control). Works without any cloud connection or Tesla Developer account!
+          </div>
+          <div class="form-group">
+            <label class="form-label">Vehicle VIN</label>
+            <input type="text" class="form-input" id="cfg-ble-vin" placeholder="5YJ3E1EB8NFxxxxxx">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Private Key Path</label>
+            <input type="text" class="form-input" id="cfg-ble-key" value="private-key.pem">
+          </div>
+          <div class="form-help">
+            One-time pairing: Run <code>tesla-control -vin &lt;VIN&gt; -ble add-key-request private-key.pem owner</code> and tap your physical key card on the center console.
           </div>
         </div>
 
         <!-- Home Assistant Form -->
         <div id="form-ha" style="display:none;">
+          <div class="form-help" style="margin-bottom:12px; padding:10px; background:#161616; border-radius:6px; border:1px solid #222;">
+            Controls the vehicle's onboard charger directly through Home Assistant's Tesla integration. Works with your dumb Mobile Connector Gen 1 (no smart plug needed!).
+          </div>
           <div class="form-group">
             <label class="form-label">Home Assistant URL</label>
             <input type="text" class="form-input" id="cfg-ha-url" placeholder="http://192.168.40.xxx:8123">
           </div>
           <div class="form-group">
             <label class="form-label">Long-Lived Access Token</label>
-            <input type="password" class="form-input" id="cfg-ha-token" placeholder="Bearer token">
+            <input type="password" class="form-input" id="cfg-ha-token" placeholder="Bearer token from your HA Profile">
           </div>
           <div class="form-group">
             <label class="form-label">Charger Switch Entity</label>
@@ -452,22 +490,6 @@
           <div class="form-group">
             <label class="form-label">Battery Level Entity</label>
             <input type="text" class="form-input" id="cfg-ha-soc" value="sensor.battery_sensor">
-          </div>
-        </div>
-
-        <!-- Fleet Form -->
-        <div id="form-fleet" style="display:none;">
-          <div class="form-group">
-            <label class="form-label">Client ID</label>
-            <input type="text" class="form-input" id="cfg-fleet-id" placeholder="Tesla developer client ID">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Client Secret</label>
-            <input type="password" class="form-input" id="cfg-fleet-secret" placeholder="Tesla developer client secret">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Refresh Token</label>
-            <input type="password" class="form-input" id="cfg-fleet-refresh" placeholder="OAuth refresh token">
           </div>
         </div>
 
@@ -523,7 +545,7 @@
         </div>
 
         <div class="form-help" style="margin-top: 4px;">
-          Charging formula: <strong>Amps = (Solar Watts - Baseline) / 120V</strong>, clamped between 5A (firmware min) and 12A (NEMA 5-15 continuous max).
+          Charging formula: <strong>Amps = (Solar Watts - Baseline) / 120V</strong>, clamped between 5A (Model 3 onboard charger firmware min) and 12A (NEMA 5-15 continuous max).
         </div>
 
         <div class="btn-row">
@@ -559,9 +581,9 @@
 
     function onProviderChange() {
       const p = document.getElementById('cfg-provider').value;
-      document.getElementById('form-tessie').style.display = (p === 'tessie') ? 'block' : 'none';
-      document.getElementById('form-ha').style.display = (p === 'homeassistant') ? 'block' : 'none';
       document.getElementById('form-fleet').style.display = (p === 'fleet') ? 'block' : 'none';
+      document.getElementById('form-ble').style.display = (p === 'ble') ? 'block' : 'none';
+      document.getElementById('form-ha').style.display = (p === 'homeassistant') ? 'block' : 'none';
       document.getElementById('form-simulator').style.display = (p === 'simulator') ? 'block' : 'none';
       document.getElementById('provider-badge').textContent = p.toUpperCase();
     }
@@ -623,12 +645,10 @@
         document.getElementById('val-battery-bar').style.width = (battery ? battery : 0) + '%';
         document.getElementById('sub-vehicle-status').textContent = `${veh.charging_state || 'Disconnected'} | ${veh.name || 'Model 3'}`;
 
-        // Mode buttons
         if (ctrl.mode) {
           updateModeButtons(ctrl.mode);
         }
 
-        // Header status
         const dot = document.getElementById('system-dot');
         const stateText = document.getElementById('system-state-text');
         if (ctrl.is_charging) {
@@ -668,12 +688,21 @@
 
         // Vehicle
         const veh = currentConfig.vehicle || {};
-        const prov = (veh.provider || 'tessie').toLowerCase();
+        const prov = (veh.provider || 'fleet').toLowerCase();
         document.getElementById('cfg-provider').value = prov;
 
-        const tessie = veh.tessie || {};
-        if (tessie.api_key) document.getElementById('cfg-tessie-key').value = tessie.api_key;
-        if (tessie.vin) document.getElementById('cfg-tessie-vin').value = tessie.vin;
+        const fl = veh.fleet || {};
+        if (fl.client_id) document.getElementById('cfg-fleet-id').value = fl.client_id;
+        if (fl.client_secret) document.getElementById('cfg-fleet-secret').value = fl.client_secret;
+        if (fl.refresh_token) document.getElementById('cfg-fleet-refresh').value = fl.refresh_token;
+        if (fl.domain) {
+          document.getElementById('cfg-fleet-domain').value = fl.domain;
+          document.getElementById('btn-enroll-key').href = `https://tesla.com/_ak/${fl.domain}`;
+        }
+
+        const ble = veh.ble || {};
+        if (ble.vin) document.getElementById('cfg-ble-vin').value = ble.vin;
+        if (ble.key_file) document.getElementById('cfg-ble-key').value = ble.key_file;
 
         const ha = veh.homeassistant || {};
         if (ha.url) document.getElementById('cfg-ha-url').value = ha.url;
@@ -682,14 +711,56 @@
         if (ha.amps_entity) document.getElementById('cfg-ha-amps').value = ha.amps_entity;
         if (ha.soc_entity) document.getElementById('cfg-ha-soc').value = ha.soc_entity;
 
-        const fl = veh.fleet || {};
-        if (fl.client_id) document.getElementById('cfg-fleet-id').value = fl.client_id;
-        if (fl.client_secret) document.getElementById('cfg-fleet-secret').value = fl.client_secret;
-        if (fl.refresh_token) document.getElementById('cfg-fleet-refresh').value = fl.refresh_token;
-
         onProviderChange();
       } catch (e) {
         console.error('Config fetch failed', e);
+      }
+    }
+
+    async function generateKeys() {
+      const box = document.getElementById('vehicle-console');
+      box.style.display = 'block';
+      box.textContent = 'Generating EC SECP256R1 Virtual Key pair...';
+      try {
+        const res = await fetch('/api/fleet/generate-keys', { method: 'POST' });
+        const d = await res.json();
+        box.textContent = d.message + '\n\n' + d.public_key;
+        showToast('Virtual Key pair active.');
+      } catch (e) {
+        box.textContent = 'Key generation error: ' + e.message;
+      }
+    }
+
+    async function registerPartner() {
+      const box = document.getElementById('vehicle-console');
+      box.style.display = 'block';
+      box.textContent = 'Registering partner account with Tesla...';
+
+      const payload = {
+        client_id: document.getElementById('cfg-fleet-id').value.trim(),
+        client_secret: document.getElementById('cfg-fleet-secret').value.trim(),
+        domain: document.getElementById('cfg-fleet-domain').value.trim(),
+        region: 'na'
+      };
+
+      try {
+        const res = await fetch('/api/fleet/register-partner', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const d = await res.json();
+        box.textContent = d.log || JSON.stringify(d, null, 2);
+        if (d.success) {
+          showToast('Partner registered successfully! 412 is cleared.');
+          if (d.domain) {
+            document.getElementById('btn-enroll-key').href = `https://tesla.com/_ak/${d.domain}`;
+          }
+        } else {
+          showToast('Registration failed. Check output.');
+        }
+      } catch (e) {
+        box.textContent = 'Network error: ' + e.message;
       }
     }
 
@@ -697,10 +768,21 @@
       const prov = document.getElementById('cfg-provider').value;
       const vehData = { provider: prov };
 
-      if (prov === 'tessie') {
-        vehData.tessie = {
-          api_key: document.getElementById('cfg-tessie-key').value.trim(),
-          vin: document.getElementById('cfg-tessie-vin').value.trim()
+      if (prov === 'fleet') {
+        const domain = document.getElementById('cfg-fleet-domain').value.trim();
+        vehData.fleet = {
+          client_id: document.getElementById('cfg-fleet-id').value.trim(),
+          client_secret: document.getElementById('cfg-fleet-secret').value.trim(),
+          refresh_token: document.getElementById('cfg-fleet-refresh').value.trim(),
+          access_token: document.getElementById('cfg-fleet-refresh').value.trim(),
+          domain: domain,
+          region: 'na'
+        };
+        document.getElementById('btn-enroll-key').href = `https://tesla.com/_ak/${domain}`;
+      } else if (prov === 'ble') {
+        vehData.ble = {
+          vin: document.getElementById('cfg-ble-vin').value.trim(),
+          key_file: document.getElementById('cfg-ble-key').value.trim()
         };
       } else if (prov === 'homeassistant') {
         vehData.homeassistant = {
@@ -709,12 +791,6 @@
           switch_entity: document.getElementById('cfg-ha-switch').value.trim(),
           amps_entity: document.getElementById('cfg-ha-amps').value.trim(),
           soc_entity: document.getElementById('cfg-ha-soc').value.trim()
-        };
-      } else if (prov === 'fleet') {
-        vehData.fleet = {
-          client_id: document.getElementById('cfg-fleet-id').value.trim(),
-          client_secret: document.getElementById('cfg-fleet-secret').value.trim(),
-          refresh_token: document.getElementById('cfg-fleet-refresh').value.trim()
         };
       } else if (prov === 'simulator') {
         vehData.simulator = { enabled: true };
@@ -746,10 +822,18 @@
       const prov = document.getElementById('cfg-provider').value;
       const payload = { provider: prov };
 
-      if (prov === 'tessie') {
-        payload.tessie = {
-          api_key: document.getElementById('cfg-tessie-key').value.trim(),
-          vin: document.getElementById('cfg-tessie-vin').value.trim()
+      if (prov === 'fleet') {
+        payload.fleet = {
+          client_id: document.getElementById('cfg-fleet-id').value.trim(),
+          client_secret: document.getElementById('cfg-fleet-secret').value.trim(),
+          refresh_token: document.getElementById('cfg-fleet-refresh').value.trim(),
+          access_token: document.getElementById('cfg-fleet-refresh').value.trim(),
+          region: 'na'
+        };
+      } else if (prov === 'ble') {
+        payload.ble = {
+          vin: document.getElementById('cfg-ble-vin').value.trim(),
+          key_file: document.getElementById('cfg-ble-key').value.trim()
         };
       } else if (prov === 'homeassistant') {
         payload.homeassistant = {
@@ -758,12 +842,6 @@
           switch_entity: document.getElementById('cfg-ha-switch').value.trim(),
           amps_entity: document.getElementById('cfg-ha-amps').value.trim(),
           soc_entity: document.getElementById('cfg-ha-soc').value.trim()
-        };
-      } else if (prov === 'fleet') {
-        payload.fleet = {
-          client_id: document.getElementById('cfg-fleet-id').value.trim(),
-          client_secret: document.getElementById('cfg-fleet-secret').value.trim(),
-          refresh_token: document.getElementById('cfg-fleet-refresh').value.trim()
         };
       }
 

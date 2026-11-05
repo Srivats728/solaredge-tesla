@@ -8,16 +8,25 @@ solaredge:
   timeout: 5
 
 vehicle:
-  # Provider options:
-  # - tessie: Recommended for personal Teslas. Single API key from dash.tessie.com (no developer setup needed)
-  # - homeassistant: Local LAN connection to Home Assistant instance
-  # - fleet: Official Tesla Developer Fleet API
+  # 100% Free Vehicle Options:
+  # - fleet: Official Tesla Developer Fleet API (Free tier with $16/mo developer credits)
+  # - ble: Local Bluetooth Low Energy via tesla-control (100% offline, zero cloud, zero API accounts)
+  # - homeassistant: Local LAN connection to Home Assistant (controls vehicle onboard charger directly)
   # - simulator: Local mock Model 3 for instant testing without a real vehicle
-  provider: "tessie"
+  provider: "fleet"
 
-  tessie:
-    api_key: ""
+  fleet:
+    client_id: ""
+    client_secret: ""
+    access_token: ""
+    refresh_token: ""
+    domain: "srivats728.github.io"
+    region: "na"
+
+  ble:
     vin: ""
+    key_file: "private-key.pem"
+    binary_path: "tesla-control"
 
   homeassistant:
     url: "http://homeassistant.local:8123"
@@ -26,28 +35,13 @@ vehicle:
     amps_entity: "number.charging_amps"
     switch_entity: "switch.charger"
 
-  fleet:
-    client_id: ""
-    client_secret: ""
-    access_token: ""
-    refresh_token: ""
-    region: "na"
-
 charging:
   voltage: 120
   min_amps: 5
   max_amps: 12
-
-  # Minimum solar generation (Watts) required to initiate/consider charging
   start_threshold_watts: 1700
-
-  # Estimated baseline household consumption (Watts) subtracted from solar to determine car surplus
   baseline_house_watts: 600
-
-  # Power threshold below which the car stops charging
   stop_threshold_watts: 1100
-
-  # Anti-cycling & debounce timers (seconds)
   start_delay_seconds: 120
   stop_delay_seconds: 180
   amp_change_cooldown_seconds: 45
@@ -56,7 +50,6 @@ charging:
 whatsapp:
   enabled: false
   provider: "callmebot"
-
   callmebot:
     phone: "+1xxxxxxxxxx"
     apikey: "YOUR_CALLMEBOT_API_KEY"

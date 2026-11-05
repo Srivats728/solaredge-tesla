@@ -19,7 +19,8 @@ from solaredge import SolarEdgeClient, STATUS_MAP
 from vehicle import (
     BaseVehicleClient,
     SimulatorVehicleClient,
-    TessieClient,
+    TeslaControlBLEClient,
+    TeslaFleetDirectClient,
     HomeAssistantClient,
     create_vehicle_client
 )
@@ -335,48 +336,81 @@ class TestVehicleProviders:
         assert sim.is_charging is False
         assert sim.get_charge_state()["charging_state"] == "Stopped"
 
-    def test_tessie_client_with_mocks(self):
-        client = TessieClient({"api_key": "test_tessie_api_key_12345", "vin": "5YJ3E1EB8NF123456"})
+    def test_ble_client_with_mocks(self, tmp_path):
+        key_file = tmp_path / "private-key.pem"
+        key_file.write_text("dummy_key")
+        client = TeslaControlBLEClient({
+            "vin": "5YJ3E1EB8NF123456",
+            "key_file": str(key_file),
+            "binary_path": "tesla-control"
+        })
+        assert client.initialize() is True
+        assert client.is_awake() is True
 
-        def mock_tessie_get(url, **kwargs):
+        mock_completed = MagicMock()
+        mock_completed.returncode = 0
+        mock_completed.stdout = "Success"
+        mock_completed.stderr = ""
+
+        with patch("subprocess.run", return_value=mock_completed) as mock_sub:
+            assert client.set_charging_amps(9) is True
+            assert client.charge_amps == 9
+            assert client.start_charging() is True
+            assert client.is_charging is True
+            assert client.stop_charging() is True
+            assert client.is_charging is False
+
+    def test_fleet_direct_client_with_mocks(self):
+        client = TeslaFleetDirectClient({
+            "client_id": "test_id",
+            "client_secret": "test_sec",
+            "access_token": "valid_token",
+            "refresh_token": "valid_refresh",
+            "vin": "5YJ3E1EB8NF123456",
+            "region": "na"
+        })
+
+        def mock_fleet_get(url, **kwargs):
             resp = MagicMock()
             resp.status_code = 200
-            if "/vehicles" in url:
+            if "/vehicles/5YJ3E1EB8NF123456/vehicle_data" in url:
                 resp.json.return_value = {
-                    "results": [
-                        {"vin": "5YJ3E1EB8NF123456", "last_state": {"display_name": "My Model 3"}}
-                    ]
-                }
-            elif "/status" in url:
-                resp.json.return_value = {"status": "awake"}
-            elif "/state" in url:
-                resp.json.return_value = {
-                    "charge_state": {
-                        "charging_state": "Charging",
-                        "battery_level": 78,
-                        "charge_amps": 10,
-                        "charge_current_request": 10,
-                        "charger_actual_current": 10,
-                        "charger_voltage": 120,
-                        "charge_port_door_open": True
+                    "response": {
+                        "charge_state": {
+                            "charging_state": "Charging",
+                            "battery_level": 80,
+                            "charge_amps": 12,
+                            "charge_current_request": 12,
+                            "charger_actual_current": 12,
+                            "charger_voltage": 120,
+                            "charge_port_door_open": True
+                        }
                     }
+                }
+            elif "/vehicles/5YJ3E1EB8NF123456" in url:
+                resp.json.return_value = {"response": {"state": "online"}}
+            elif "/vehicles" in url:
+                resp.json.return_value = {
+                    "response": [
+                        {"vin": "5YJ3E1EB8NF123456", "display_name": "My Model 3"}
+                    ]
                 }
             return resp
 
-        with patch("requests.get", side_effect=mock_tessie_get), patch("requests.post") as mock_post:
+        with patch("requests.get", side_effect=mock_fleet_get), patch("requests.post") as mock_post:
             assert client.initialize() is True
             assert client.vehicle_name == "My Model 3"
             assert client.is_awake() is True
 
             state = client.get_charge_state()
             assert state["online"] is True
-            assert state["battery_level"] == 78
+            assert state["battery_level"] == 80
             assert state["charging_state"] == "Charging"
-            assert state["charge_amps"] == 10
+            assert state["charge_amps"] == 12
 
-            # Mock /command/set_charging_amps
+            # Mock REST command success
             mock_post.return_value.status_code = 200
-            mock_post.return_value.json.return_value = {"result": True}
+            mock_post.return_value.json.return_value = {"response": {"result": True}}
             assert client.set_charging_amps(8) is True
             assert client.start_charging() is True
             assert client.stop_charging() is True
@@ -424,15 +458,17 @@ class TestVehicleProviders:
         sim = create_vehicle_client({"provider": "simulator"})
         assert isinstance(sim, SimulatorVehicleClient)
 
-        tessie = create_vehicle_client({"provider": "tessie", "tessie": {"api_key": "k"}})
-        assert isinstance(tessie, TessieClient)
+        fleet = create_vehicle_client({"provider": "fleet", "fleet": {"client_id": "c"}})
+        assert isinstance(fleet, TeslaFleetDirectClient)
+
+        ble = create_vehicle_client({"provider": "ble", "ble": {"vin": "5YJ..."}})
+        assert isinstance(ble, TeslaControlBLEClient)
 
         ha = create_vehicle_client({"provider": "homeassistant", "homeassistant": {"token": "t"}})
         assert isinstance(ha, HomeAssistantClient)
 
-        # Fallback on empty or unknown
         fallback = create_vehicle_client({})
-        assert isinstance(fallback, SimulatorVehicleClient)
+        assert isinstance(fallback, TeslaFleetDirectClient) or isinstance(fallback, SimulatorVehicleClient)
 
 
 # ==============================================================================

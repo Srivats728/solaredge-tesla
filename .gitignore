@@ -2,6 +2,8 @@
 cache.json
 config.yaml
 *.log
+private-key.pem
+*private*.pem
 
 # Python
 __pycache__/

@@ -57,6 +57,21 @@ python3 -m venv "$INSTALL_DIR/venv"
 "$INSTALL_DIR/venv/bin/pip" install --upgrade pip
 "$INSTALL_DIR/venv/bin/pip" install -r "$INSTALL_DIR/requirements.txt"
 
+# Optional: Install Go and build official tesla-control if not present
+if ! command -v tesla-control &>/dev/null; then
+    echo -e "${BLUE}[3.5/5] Building official tesla-control tool for virtual key signing & BLE...${NC}"
+    apt-get install -y golang || true
+    if command -v go &>/dev/null; then
+        export GOPATH="/opt/go"
+        export GOCACHE="/tmp/gocache"
+        go install github.com/teslamotors/vehicle-command/cmd/tesla-control@latest || true
+        if [ -f "/opt/go/bin/tesla-control" ]; then
+            cp /opt/go/bin/tesla-control /usr/local/bin/tesla-control
+            echo "Installed tesla-control to /usr/local/bin/tesla-control"
+        fi
+    fi
+fi
+
 echo -e "${BLUE}[4/5] Initializing configuration...${NC}"
 if [ ! -f "$INSTALL_DIR/config.yaml" ]; then
     cp "$INSTALL_DIR/config.example.yaml" "$INSTALL_DIR/config.yaml"

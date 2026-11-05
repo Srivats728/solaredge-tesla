@@ -1,7 +1,7 @@
 """
 Minimalist Flask Web Dashboard & REST API
-Clean, resilient, and responsive interface for SolarEdge - Tesla Solar Charging Optimizer.
-Zero emojis, strict Tesla monochrome styling, and robust error handling.
+resilient, clean, and zero-emoji interface for SolarEdge - Tesla Solar Charging Optimizer.
+Supports free methods: Local Bluetooth (BLE), Official Tesla Fleet API, Home Assistant, and Simulator.
 """
 
 import os
@@ -9,11 +9,14 @@ import sys
 import logging
 import time
 import yaml
+import requests
 from flask import Flask, render_template, jsonify, request
 from flask.json.provider import DefaultJSONProvider
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import serialization
 
 from solaredge import SolarEdgeClient, STATUS_MAP
-from vehicle import create_vehicle_client, BaseVehicleClient
+from vehicle import create_vehicle_client, BaseVehicleClient, REGIONS, AUTH_URL
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +29,45 @@ class CustomJSONProvider(DefaultJSONProvider):
         return super().default(obj)
 
 
-def mask_secret(val: str) -> str:
-    """Mask secret tokens/keys showing only first 4 and last 4 chars."""
-    if not val or len(val) < 8:
-        return "••••••••" if val else ""
-    return f"{val[:4]}••••{val[-4:]}"
+def generate_or_get_ec_keys(base_dir="."):
+    """Generate or retrieve EC SECP256R1 key pair for Tesla Virtual Key."""
+    priv_path = os.path.join(base_dir, "private-key.pem")
+    well_known_dir = os.path.join(base_dir, ".well-known", "appspecific")
+    os.makedirs(well_known_dir, exist_ok=True)
+    pub_path = os.path.join(well_known_dir, "com.tesla.3p.public-key.pem")
+
+    if os.path.exists(pub_path) and os.path.exists(priv_path):
+        try:
+            with open(pub_path, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if content:
+                    return content
+        except Exception:
+            pass
+
+    try:
+        key = ec.generate_private_key(ec.SECP256R1())
+        priv_pem = key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption()
+        )
+        pub_pem = key.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        with open(priv_path, "wb") as f:
+            f.write(priv_pem)
+        with open(pub_path, "wb") as f:
+            f.write(pub_pem)
+        try:
+            os.chmod(priv_path, 0o600)
+        except Exception:
+            pass
+        return pub_pem.decode("utf-8").strip()
+    except Exception as e:
+        logger.error("Failed to generate EC keys: %s", e)
+        return ""
 
 
 def create_app(controller_ref=None, config_path="config.yaml"):
@@ -43,6 +80,13 @@ def create_app(controller_ref=None, config_path="config.yaml"):
     @app.route("/")
     def index():
         return render_template("index.html")
+
+    @app.route("/.well-known/appspecific/com.tesla.3p.public-key.pem")
+    def serve_public_key():
+        pub = generate_or_get_ec_keys()
+        if pub:
+            return pub, 200, {"Content-Type": "text/plain"}
+        return "Public key not generated", 404
 
     @app.route("/api/status")
     def api_status():
@@ -58,7 +102,6 @@ def create_app(controller_ref=None, config_path="config.yaml"):
         baseline_w = ctrl.baseline_house_w
         surplus_w = max(0.0, solar_w - baseline_w)
 
-        # Vehicle metadata
         veh_info = ctrl.tesla.get_info() if ctrl.tesla else {}
 
         return jsonify({
@@ -130,7 +173,6 @@ def create_app(controller_ref=None, config_path="config.yaml"):
             with open(config_path, "r", encoding="utf-8") as f:
                 current_cfg = yaml.safe_load(f) or {}
 
-            # Deep merge sections
             for section in ["solaredge", "vehicle", "charging", "whatsapp"]:
                 if section in updates:
                     if section not in current_cfg:
@@ -148,7 +190,6 @@ def create_app(controller_ref=None, config_path="config.yaml"):
             except Exception:
                 pass
 
-            # Live reload into running controller
             if controller_ref:
                 controller_ref.reload_config(current_cfg)
 
@@ -156,6 +197,109 @@ def create_app(controller_ref=None, config_path="config.yaml"):
         except Exception as e:
             logger.error("Error saving config: %s", e)
             return jsonify({"success": False, "error": str(e)}), 500
+
+    @app.route("/api/fleet/generate-keys", methods=["POST"])
+    def api_fleet_generate_keys():
+        try:
+            pub = generate_or_get_ec_keys()
+            return jsonify({
+                "success": True,
+                "public_key": pub,
+                "message": "Public/private EC SECP256R1 keys active in .well-known/appspecific/com.tesla.3p.public-key.pem"
+            })
+        except Exception as e:
+            return jsonify({"success": False, "error": str(e)}), 500
+
+    @app.route("/api/fleet/register-partner", methods=["POST"])
+    def api_fleet_register_partner():
+        data = request.get_json() or {}
+        client_id = data.get("client_id", "").strip()
+        client_secret = data.get("client_secret", "").strip()
+        domain = data.get("domain", "").strip()
+        region = data.get("region", "na").strip().lower()
+
+        if not (client_id and client_secret and domain):
+            return jsonify({"success": False, "error": "Client ID, Client Secret, and Domain are required."}), 400
+
+        clean_domain = domain.replace("https://", "").replace("http://", "").split("/")[0].strip()
+        base_url = REGIONS.get(region, REGIONS["na"])
+        logs = []
+
+        # Step 1: Obtain Partner Token
+        logs.append(f"Requesting Partner Token from Tesla OAuth for Client ID {client_id[:6]}...")
+        try:
+            token_payload = {
+                "grant_type": "client_credentials",
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "scope": "openid vehicle_device_data vehicle_cmds vehicle_charging_cmds",
+                "audience": base_url
+            }
+            token_resp = requests.post(AUTH_URL, data=token_payload, timeout=15)
+            logs.append(f"OAuth response: HTTP {token_resp.status_code}")
+            if token_resp.status_code != 200:
+                logs.append(f"OAuth error: {token_resp.text}")
+                return jsonify({
+                    "success": False,
+                    "error": f"Failed to acquire Partner Token ({token_resp.status_code}): {token_resp.text}",
+                    "log": "\n".join(logs)
+                }), 400
+
+            partner_token = token_resp.json().get("access_token")
+        except Exception as ex:
+            logs.append(f"Exception during OAuth: {ex}")
+            return jsonify({"success": False, "error": str(ex), "log": "\n".join(logs)}), 500
+
+        # Step 2: Register partner domain with Tesla
+        reg_url = f"{base_url}/api/1/partner_accounts"
+        logs.append(f"Registering domain '{clean_domain}' with Tesla at {reg_url}...")
+        try:
+            reg_resp = requests.post(
+                reg_url,
+                headers={
+                    "Authorization": f"Bearer {partner_token}",
+                    "Content-Type": "application/json"
+                },
+                json={"domain": clean_domain},
+                timeout=20
+            )
+            logs.append(f"Tesla response: HTTP {reg_resp.status_code}")
+            logs.append(f"Response body: {reg_resp.text}")
+
+            if reg_resp.status_code in [200, 201]:
+                # Update config.yaml with client_id, client_secret, domain
+                with open(config_path, "r", encoding="utf-8") as f:
+                    cfg = yaml.safe_load(f) or {}
+                if "vehicle" not in cfg:
+                    cfg["vehicle"] = {}
+                cfg["vehicle"]["provider"] = "fleet"
+                if "fleet" not in cfg["vehicle"]:
+                    cfg["vehicle"]["fleet"] = {}
+                cfg["vehicle"]["fleet"]["client_id"] = client_id
+                cfg["vehicle"]["fleet"]["client_secret"] = client_secret
+                cfg["vehicle"]["fleet"]["domain"] = clean_domain
+                cfg["vehicle"]["fleet"]["region"] = region
+                with open(config_path, "w", encoding="utf-8") as f:
+                    yaml.dump(cfg, f, default_flow_style=False)
+
+                logs.append("[SUCCESS] Partner account registered! HTTP 412 is cleared.")
+                logs.append(f"Virtual Key link: https://tesla.com/_ak/{clean_domain}")
+                return jsonify({
+                    "success": True,
+                    "message": f"Partner account registered successfully with domain {clean_domain}!",
+                    "domain": clean_domain,
+                    "enroll_url": f"https://tesla.com/_ak/{clean_domain}",
+                    "log": "\n".join(logs)
+                })
+            else:
+                return jsonify({
+                    "success": False,
+                    "error": f"Registration returned HTTP {reg_resp.status_code}: {reg_resp.text}",
+                    "log": "\n".join(logs)
+                }), 400
+        except Exception as ex:
+            logs.append(f"Exception during registration: {ex}")
+            return jsonify({"success": False, "error": str(ex), "log": "\n".join(logs)}), 500
 
     @app.route("/api/test-inverter", methods=["POST"])
     def api_test_inverter():
@@ -240,8 +384,10 @@ def create_app(controller_ref=None, config_path="config.yaml"):
             init_ok = test_client.initialize()
             if not init_ok:
                 logs.append(f"[FAIL] Vehicle provider '{provider_name}' failed to initialize.")
-                if provider_name == "tessie":
-                    logs.append("Tip: Ensure your Tessie API Key from dash.tessie.com/settings/api is correct.")
+                if provider_name == "ble":
+                    logs.append("Tip: Ensure VIN is entered, private-key.pem exists, and Bluetooth is active within ~30ft of the car.")
+                elif provider_name == "fleet":
+                    logs.append("Tip: Ensure Client ID, Client Secret, and Refresh Token are configured and partner domain is registered.")
                 elif provider_name == "homeassistant":
                     logs.append("Tip: Ensure Home Assistant URL and Long-Lived Access Token are valid.")
                 return jsonify({"success": False, "log": "\n".join(logs)})
@@ -256,7 +402,6 @@ def create_app(controller_ref=None, config_path="config.yaml"):
             logs.append(f"[OK] Charging State: {charging_state}")
             logs.append(f"[OK] Battery Level: {battery}%" if battery is not None else "[INFO] Battery level unavailable (vehicle asleep)")
 
-            # If test succeeds, optionally update controller's vehicle client
             if controller_ref:
                 controller_ref.tesla = test_client
 
